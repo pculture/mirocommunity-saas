@@ -2139,3 +2139,32 @@ class BulkEditAdministrationTestCase(AdministrationBaseTestCase):
         self.assertEqual(Video.objects.filter(status=Video.UNAPPROVED).count(),
                          5)
 
+@mock.patch('mirocommunity_saas.models.TierInfo.enforce_tiers', mock.Mock(
+        return_value=True))
+@mock.patch('mirocommunity_saas.tiers.Tier.remaining_videos',
+            mock.Mock(return_value=0))
+class SubmitVideoViewTestCase(BaseTestCase):
+
+    def test_admin_cant_submit_approved_video(self):
+        submit_url = 'http://www.youtube.com/watch?v=JzhlfbWBuQ8'
+        u = self.create_user(username='admin',
+                             password='admin',
+                             is_superuser=True)
+        u.set_password('admin')
+        u.save()
+
+        data = {'url': submit_url}
+
+        c = Client()
+        self.assertTrue(c.login(username='admin', password='admin'))
+
+        # step 1
+        c.post(reverse('localtv_submit_video'), data)
+
+        # step 2
+        response = c.post(reverse('localtv_submit_scraped_video'), data)
+
+        self.assertStatusCodeEquals(response, 302)
+
+        v = Video.objects.get()
+        self.assertEqual(v.status, Video.UNAPPROVED)

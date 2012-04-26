@@ -23,7 +23,7 @@ import django.contrib.auth.models
 from django.core.mail import EmailMessage, EmailMultiAlternatives
 from django.template import Context, loader
 
-from localtv.models import SiteSettings
+from localtv.models import SiteSettings, Video
 
 from uploadtemplate.models import Theme
 
@@ -655,3 +655,16 @@ def pre_mark_as_active(sender, active_set, **kwargs):
     else:
         # don't approve any videos!
         return {'status': -1}
+
+def submit_finished(sender, **kwargs):
+    """
+    Called after someone has submitted a video.  We check if the video can't be
+    approved.
+    """
+    import mirocommunity_saas.models
+    tier_info = mirocommunity_saas.models.TierInfo.objects.db_manager(
+        sender._state.db).get_current()
+    tier = tier_info.get_tier()
+    if sender.status == Video.ACTIVE and not tier.can_add_more_videos():
+        sender.status = Video.UNAPPROVED
+        sender.save()

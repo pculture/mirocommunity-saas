@@ -138,5 +138,6 @@ models.signals.pre_save.connect(tiers.pre_save_adjust_resource_usage,
 models.signals.post_save.connect(tiers.post_save_send_queued_mail,
                                  sender=TierInfo)
 
-from localtv.tasks import pre_mark_as_active
+from localtv.signals import pre_mark_as_active, submit_finished
 pre_mark_as_active.connect(tiers.pre_mark_as_active)
+submit_finished.connect(tiers.submit_finished)
