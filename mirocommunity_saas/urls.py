@@ -1,7 +1,7 @@
 from django.conf.urls.defaults import patterns, include
 
 from mirocommunity_saas.admin.forms import (
-    EditSettingsForm, AuthorForm, AuthorFormSet)
+    EditSettingsForm, AuthorForm, AuthorFormSet, VideoFormSet)
 
 urlpatterns = patterns('mirocommunity_saas.admin.views',
     (r'^admin/$',
@@ -45,8 +45,9 @@ urlpatterns += patterns('localtv.admin',
      {'form_class': EditSettingsForm}, 'localtv_admin_settings'),
     (r'^admin/users/$', 'user_views.users',
      {'formset_class': AuthorFormSet,
-      'form_class': AuthorForm}, 'localtv_admin_users')
-)
+      'form_class': AuthorForm}, 'localtv_admin_users'),
+    (r'^admin/bulk_edit/$', 'bulk_edit_views.bulk_edit',
+     {'formset_class': VideoFormSet}, 'localtv_admin_bulk_edit'))
 
 urlpatterns += patterns(
     '',

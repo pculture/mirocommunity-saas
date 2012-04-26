@@ -2072,3 +2072,70 @@ class FeedImportTestCase(BaseTestCase):
                 status=Video.ACTIVE).count(), 4)
         self.assertEqual(Video.objects.filter(
                 status=Video.UNAPPROVED).count(), 1)
+
+@mock.patch('mirocommunity_saas.tiers.Tier.remaining_videos',
+            mock.Mock(return_value=4))
+class BulkEditAdministrationTestCase(AdministrationBaseTestCase):
+
+    urls = 'mirocommunity_saas.urls'
+
+    def setUp(self):
+        self.videos = []
+        for i in range(5):
+            self.videos.append(
+                self.create_video('Video %i' % i, status=Video.UNAPPROVED,
+                                  embed_code='HTML!'))
+        AdministrationBaseTestCase.setUp(self)
+
+    def test_approve_exactly_enough_videos(self):
+        POST_data = {
+            'form-TOTAL_FORMS': 6,
+            'form-INITIAL_FORMS': 5,
+            'form-MAX_NUM_FORMS': 6}
+        for i in range(5):
+            video = self.videos[i]
+            for field in ('id', 'name', 'file_url', 'description',
+                          'embed_code', 'thumbnail_url'):
+                POST_data['form-%i-%s' % (i, field)] = getattr(video, field)
+
+        for i in range(4):
+            POST_data['form-%i-BULK' % i] = 'yes'
+        POST_data['bulk_action'] = 'approve'
+
+        url = reverse('localtv_admin_bulk_edit') + '?filter=unapproved'
+
+        c = Client()
+        self.assertTrue(c.login(username='admin', password='admin'))
+
+        response = c.post(url, POST_data)
+        self.assertStatusCodeEquals(response, 302)
+        self.assertEqual(Video.objects.filter(status=Video.ACTIVE).count(),
+                         4)
+        self.assertEqual(Video.objects.filter(status=Video.UNAPPROVED).count(),
+                         1)
+
+    def test_approved_too_many_videos(self):
+        POST_data = {
+            'form-TOTAL_FORMS': 6,
+            'form-INITIAL_FORMS': 5,
+            'form-MAX_NUM_FORMS': 6}
+        for i in range(5):
+            video = self.videos[i]
+            for field in ('id', 'name', 'file_url', 'description',
+                          'embed_code'):
+                POST_data['form-%i-%s' % (i, field)] = getattr(video, field)
+            POST_data['form-%i-BULK' % i] = 'yes'
+        POST_data['bulk_action'] = 'approve'
+
+        url = reverse('localtv_admin_bulk_edit') + '?filter=unapproved'
+
+        c = Client()
+        self.assertTrue(c.login(username='admin', password='admin'))
+
+        response = c.post(url, POST_data)
+        self.assertStatusCodeEquals(response, 200)
+        formset = response.context['formset']
+        self.assertFalse(formset.is_valid())
+        self.assertEqual(Video.objects.filter(status=Video.UNAPPROVED).count(),
+                         5)
+

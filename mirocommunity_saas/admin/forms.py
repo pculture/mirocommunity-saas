@@ -1,3 +1,4 @@
+from django import forms
 from django.forms.models import modelformset_factory
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
@@ -6,8 +7,12 @@ from django.template import defaultfilters
 from mirocommunity_saas.models import TierInfo
 from mirocommunity_saas import tiers
 
+from localtv.models import Video
+
 from localtv.admin.forms import (EditSettingsForm as _EditSettingsForm,
-                                 AuthorForm as _AuthorForm)
+                                 AuthorForm as _AuthorForm,
+                                 BulkEditVideoFormSet as _BulkEditVideoFormSet,
+                                 BulkEditVideoForm)
 
 class EditSettingsForm(_EditSettingsForm):
     def __init__(self, *args, **kwargs):
@@ -110,3 +115,35 @@ AuthorFormSet = modelformset_factory(User,
                                      form=AuthorForm,
                                      can_delete=True,
                                      extra=0)
+
+class BulkEditVideoFormSet(_BulkEditVideoFormSet):
+
+    def clean(self):
+        tier_info = TierInfo.objects.get_current()
+        remaining_videos = tier_info.get_tier().remaining_videos()
+        self.videos_to_approve = remaining_videos
+        _BulkEditVideoFormSet.clean(self)
+        if self.videos_to_approve < 0:
+            # approved too many Videos!
+            raise forms.ValidationError('You can only approve %i videos, '
+                                        'but tried to approve %i instead. '
+                                        'Upgrade to approve more.' % (
+                    remaining_videos,
+                    remaining_videos - self.videos_to_approve))
+
+    def action_approve(self, form):
+        if form.instance.status != Video.ACTIVE:
+            self.videos_to_approve -= 1
+        _BulkEditVideoFormSet.action_approve(self, form)
+
+    def action_feature(self, form):
+        if form.instance.status != Video.ACTIVE:
+            self.videos_to_approve -= 1
+        _BulkEditVideoFormSet.action_feature(self, form)
+
+VideoFormSet = modelformset_factory(
+    Video,
+    form=BulkEditVideoForm,
+    formset=BulkEditVideoFormSet,
+    can_delete=True,
+    extra=1)
