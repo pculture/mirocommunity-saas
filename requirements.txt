@@ -1,0 +1,2 @@
+git+git://github.com/dcramer/django-paypal.git@master#egg=django-paypal
+mirocommunity>=1.9
