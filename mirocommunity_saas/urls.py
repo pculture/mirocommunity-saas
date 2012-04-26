@@ -4,6 +4,8 @@ from mirocommunity_saas.admin.forms import (
     EditSettingsForm, AuthorForm, AuthorFormSet)
 
 urlpatterns = patterns('mirocommunity_saas.admin.views',
+    (r'^admin/$',
+     'index', {}, 'localtv_admin_index'),
     (r'^admin/upgrade/$',
      'upgrade', {}, 'localtv_admin_tier'),
     (r'^admin/paypal_return/(?P<payment_secret>.+)/(?P<target_tier_name>[a-z_]+?)/$',
