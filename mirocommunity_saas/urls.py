@@ -1,9 +1,12 @@
-from django.conf.urls.defaults import patterns, include
+from django.conf.urls.defaults import patterns, include, url
 
 from mirocommunity_saas.admin.forms import (
     EditSettingsForm, AuthorForm, AuthorFormSet, VideoFormSet)
 
-urlpatterns = patterns('mirocommunity_saas.admin.views',
+urlpatterns = patterns('mirocommunity_saas.views',
+    url(r'^newsletter/$', 'newsletter', name='localtv_newsletter'))
+
+urlpatterns += patterns('mirocommunity_saas.admin.views',
     (r'^admin/$',
      'index', {}, 'localtv_admin_index'),
     (r'^admin/upgrade/$',
