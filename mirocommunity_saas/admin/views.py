@@ -18,21 +18,20 @@
 import datetime
 import math
 
+from django.conf import settings
+from django.core.urlresolvers import reverse
 from django.contrib import comments
-from django.http import HttpResponseRedirect, HttpResponseForbidden, HttpResponse
-from django.template.loader import render_to_string
+from django.http import (HttpResponseRedirect, HttpResponseForbidden,
+                         HttpResponse)
 from django.shortcuts import render_to_response
 from django.template.context import RequestContext
+from django.template.loader import render_to_string
 from django.views.decorators.csrf import csrf_protect, csrf_exempt
-from django.core.urlresolvers import reverse
-from django.conf import settings
-
+from localtv.decorators import require_site_admin
+from localtv.models import SiteSettings, Video
 from paypal.standard.ipn.models import PayPalIPN
 from paypal.standard.ipn.signals import subscription_signup, subscription_cancel, subscription_eot, subscription_modify, payment_was_successful
 import paypal.standard.ipn.views
-
-from localtv.decorators import require_site_admin
-from localtv.models import SiteSettings, Video
 
 from mirocommunity_saas import tiers, zendesk
 from mirocommunity_saas.models import TierInfo
