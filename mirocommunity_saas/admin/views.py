@@ -158,17 +158,18 @@ def upgrade(request):
             tier_info.tier_name, target_tier_name,
             tier_info.payment_due_date)
 
-    data = {}
-    data['upgrade_extra_payments'] = upgrade_extra_payments
-    data['can_modify_mapping'] = _generate_can_modify()
-    data['site_settings'] = tier_info.site_settings
-    data['would_lose_for_tier'] = would_lose
-    data['switch_messages'] = switch_messages
-    data['payment_secret'] = tier_info.get_payment_secret()
-    data['offer_free_trial'] = tier_info.free_trial_available
-    data['skip_paypal'] = getattr(settings, 'LOCALTV_SKIP_PAYPAL', False)
-    data['paypal_email_acct'] = tiers.get_paypal_email_address()
-    data['tier_to_price'] = tiers.Tier.NAME_TO_COST()
+    data = {
+        'upgrade_extra_payments': upgrade_extra_payments,
+        'can_modify_mapping': _generate_can_modify(),
+        'tier_info': tier_info,
+        'would_lose_for_tier': would_lose,
+        'switch_messages': switch_messages,
+        'payment_secret': tier_info.get_payment_secret(),
+        'offer_free_trial': tier_info.free_trial_available,
+        'skip_paypal': getattr(settings, 'LOCALTV_SKIP_PAYPAL', False),
+        'paypal_email_acct': tiers.get_paypal_email_address(),
+        'tier_to_price': tiers.Tier.NAME_TO_COST(),
+    }
     if not data['skip_paypal']:
         data['paypal_url'] = get_paypal_form_submission_url()
 
