@@ -31,7 +31,6 @@ from localtv.decorators import require_site_admin
 from localtv.models import SiteSettings, Video
 from paypal.standard.ipn.models import PayPalIPN
 from paypal.standard.ipn.signals import subscription_signup, subscription_cancel, subscription_eot, subscription_modify, payment_was_successful
-import paypal.standard.ipn.views
 
 from mirocommunity_saas import tiers, zendesk
 from mirocommunity_saas.models import TierInfo
@@ -249,25 +248,6 @@ def begin_free_trial(request, payment_secret):
 
     # Switch the tier!
     return _start_free_trial_unconfirmed(target_tier_name)
-
-
-### Below this line
-### --------------------------------------------------------------------------------------------
-### This function is something PayPal POSTs updates to.
-
-
-@csrf_exempt
-def ipn_endpoint(request, payment_secret):
-    # PayPal sends data to this function via POST.
-    #
-    # At this point in processing, the data might be fake. Let's pass it to
-    # the django-paypal code and ask it to verify it for us.
-    site_settings = SiteSettings.objects.get_current()
-    if (payment_secret == site_settings.tierinfo.payment_secret or
-        payment_secret == site_settings.tierinfo.payment_secret.replace('/', '', 1)):
-        response = paypal.standard.ipn.views.ipn(request)
-        return response
-    return HttpResponseForbidden("You submitted something invalid to this IPN handler.")
 
 
 ### Below this line
