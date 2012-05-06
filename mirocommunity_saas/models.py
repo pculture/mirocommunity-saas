@@ -1,142 +1,82 @@
-import base64
-import datetime
-import os
-
 from django.db import models
 
-from localtv.models import SingletonManager, SiteSettings
 
-from mirocommunity_saas import settings as lsettings
-from mirocommunity_saas import tiers
+class Tier(models.Model):
+    #: Human-readable name.
+    name = models.CharField(max_length=30)
+    #: Unique slug.
+    slug = models.SlugField(max_length=30)
 
-class TierInfo(models.Model):
-    payment_due_date = models.DateTimeField(null=True, blank=True)
-    free_trial_available = models.BooleanField(default=True)
-    free_trial_started_on = models.DateTimeField(null=True, blank=True)
-    in_free_trial = models.BooleanField(default=False)
-    current_paypal_profile_id = models.CharField(max_length=255, default='',blank=True) # NOTE: When using this, fill it if it seems blank.
-    video_allotment_warning_sent = models.BooleanField(default=False)
-    free_trial_warning_sent = models.BooleanField(default=False)
-    already_sent_welcome_email = models.BooleanField(default=False)
-    inactive_site_warning_sent = models.BooleanField(default=False)
-    user_has_successfully_performed_a_paypal_transaction = models.BooleanField(default=False)
-    already_sent_tiers_compliance_email = models.BooleanField(default=False)
-    tier_name = models.CharField(max_length=255, default='basic', blank=False,
-                                 choices=tiers.CHOICES)
-    fully_confirmed_tier_name = models.CharField(max_length=255, default='', blank=True)
-    should_send_welcome_email_on_paypal_event = models.BooleanField(default=False)
-    waiting_on_payment_until = models.DateTimeField(null=True, blank=True)
-    site_settings = models.OneToOneField(SiteSettings,
-                                         db_column='sitelocation_id')
-    objects = SingletonManager()
+    #: Price (USD) for the tier.
+    price = models.PositiveIntegerField()
+
+    #: Maximum number of videos for this tier.
+    video_limit = models.PositiveIntegerField()
+
+    #: Whether custom css is permitted for this tier.
+    custom_css = models.BooleanField()
+
+    #: Whether custom themes are permitted for this tier.
+    custom_themes = models.BooleanField()
 
     class Meta:
-        db_table = 'localtv_tierinfo'
+        unique_together = ('slug', 'tier_set')
 
-    @staticmethod
-    def enforce_tiers(override_setting=None, using='default'):
-        '''If the admin has set LOCALTV_DISABLE_TIERS_ENFORCEMENT to a True value,
-        then this function returns False. Otherwise, it returns True.'''
-        if override_setting is None:
-            disabled = lsettings.DISABLE_TIERS_ENFORCEMENT
-        else:
-            disabled = override_setting
 
-        if disabled:
-            # Well, hmm. If the site admin participated in a PayPal transaction, then we
-            # actually will enforce the tiers.
-            #
-            # Go figure.
-            tierdata = TierInfo.objects.db_manager(using).get_current()
-            if tierdata.user_has_successfully_performed_a_paypal_transaction:
-                return True # enforce it.
+class SiteTierInfo(models.Model):
+    site = models.ForeignKey(Site)
 
-        # Generally, we just negate the "disabled" boolean.
-        return not disabled
+    #: A list of tiers that the site admin can choose from.
+    available_tiers = models.ManyToManyField(Tier,
+                                             related_name='site_available_set')
+    #: The current selected tier (based on the admin's choice).
+    current_tier = models.ForeignKey(Tier)
 
-    def get_fully_confirmed_tier(self):
-        # If we are in a transitional state, then we would have stored
-        # the last fully confirmed tier name in an unusual column.
-        if self.fully_confirmed_tier_name:
-            return tiers.Tier(self.fully_confirmed_tier_name)
-        return None
+    #: Date and time when the tier was last changed.
+    tier_changed = models.DateTimeField()
 
-    def get_payment_secret(self):
-        '''The secret had better be non-empty. So we make it non-empty right here.'''
-        if not self.payment_secret:
-            self.payment_secret = base64.b64encode(os.urandom(16))
-            self.save()
-        return self.payment_secret
+    #: The current actual tier (set automatically based on payments). If the
+    #: current tier is changed, but doesn't get confirmed, the site will be
+    #: reset to this value. TODO: Can this be handled by just checking the
+    #: most recent paypal transaction? Probably.
+    #confirmed_tier = models.ForeignKey(Tier)
 
-    def site_is_subsidized(self):
-        return (self.current_paypal_profile_id == 'subsidized')
+    #: A list of payment objects for this site. This can be used, for example,
+    #: to check the next due date for the subscription.
+    payments = models.ManyToManyField(PayPalIPN, blank=True)
 
-    def set_to_subsidized(self):
-        if self.current_paypal_profile_id:
-            raise AssertionError, (
-                "Bailing out: " +
-                "the site already has a payment profile configured: %s" %
-                                   self.current_paypal_profile_id)
-        self.current_paypal_profile_id = 'subsidized'
+    #: Whether or not the current tier should be enforced by making sure
+    #: payments are coming in.
+    enforce_payments = models.BooleanField(default=False)
 
-    def time_until_free_trial_expires(self, now = None):
-        if not self.in_free_trial:
-            return None
-        if not self.payment_due_date:
-            return None
+    #: Whether this site has ever had a free trial. This can probably be
+    #: replaced with a query of IPN data.
+    #free_trial_available = models.BooleanField(default=True)
 
-        if now is None:
-            now = datetime.datetime.utcnow()
-        return (self.payment_due_date - now)
+    #: Whether a welcome email has been sent to this site's owner.
+    #: TODO: is this really a tiers issue?
+    welcome_email_sent = models.BooleanField(default=False)
 
-    def use_zendesk(self):
-        '''If the site is configured to, we can send notifications of
-        tiers-related changes to ZenDesk, the customer support ticketing
-        system used by PCF.
+    #: Whether a warning has been sent to the site's owner to let them know
+    #: they're approaching their video limit.
+    video_allotment_warning_sent = models.BooleanField(default=False)
 
-        A non-PCF deployment of localtv would not want to set the
-        LOCALTV_USE_ZENDESK setting. Then this method will return False,
-        and the parts of the tiers system that check it will avoid
-        making calls out to ZenDesk.'''
-        return lsettings.USE_ZENDESK
+    #: Whether this site has ever received a "free trial ending" email.
+    free_trial_ending_sent = models.BooleanField(default=False)
 
-    def get_tier(self):
-        return tiers.Tier(self.tier_name, self.site_settings)
+    #: Whether this site has already received an "inactive site" warning.
+    inactive_site_warning_sent = models.BooleanField(default=False)
 
-    def add_queued_mail(self, data):
-        if not hasattr(self, '_queued_mail'):
-            self._queued_mail = []
-        self._queued_mail.append(data)
+    #: Whether this site has already received a "tiers compliance" email.
+    tiers_compliance_email_sent = models.BooleanField(default=False)
 
-    def get_queued_mail_destructively(self):
-        ret = getattr(self, '_queued_mail', [])
-        self._queued_mail = []
-        return ret
-
-    def display_custom_css(self):
-        '''This function checks the site tier, and if permitted, returns the
-        custom CSS the admin has set.
-
-        If that is not permitted, it returns the empty unicode string.'''
-        if (not self.enforce_tiers() or
-            self.get_tier().permit_custom_css()):
-            return True
-        else:
-            return False
-
-    def enforce_permit_custom_template(self):
-        if not self.enforce_tiers():
-            return True
-        return self.get_tier().permit_custom_template()
 
 ### register pre-save handler for Tiers and payment due dates
-models.signals.pre_save.connect(tiers.pre_save_set_payment_due_date,
-                                sender=TierInfo)
-models.signals.pre_save.connect(tiers.pre_save_adjust_resource_usage,
-                                sender=TierInfo)
-models.signals.post_save.connect(tiers.post_save_send_queued_mail,
-                                 sender=TierInfo)
-
-from localtv.signals import pre_mark_as_active, submit_finished
-pre_mark_as_active.connect(tiers.pre_mark_as_active)
-submit_finished.connect(tiers.submit_finished)
+#models.signals.pre_save.connect(tiers.pre_save_adjust_resource_usage,
+#                                sender=TierInfo)
+#models.signals.post_save.connect(tiers.post_save_send_queued_mail,
+#                                 sender=TierInfo)
+#
+#from localtv.signals import pre_mark_as_active, submit_finished
+#pre_mark_as_active.connect(tiers.pre_mark_as_active)
+#submit_finished.connect(tiers.submit_finished)
