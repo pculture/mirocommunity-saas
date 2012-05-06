@@ -1,3 +1,20 @@
+# Miro Community - Easiest way to make a video website
+#
+# Copyright (C) 2010, 2011, 2012 Participatory Culture Foundation
+# 
+# Miro Community is free software: you can redistribute it and/or modify it
+# under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your
+# option) any later version.
+# 
+# Miro Community is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+# 
+# You should have received a copy of the GNU Affero General Public License
+# along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
+
 from django.db import models
 
 
@@ -10,14 +27,21 @@ class Tier(models.Model):
     #: Price (USD) for the tier.
     price = models.PositiveIntegerField()
 
-    #: Maximum number of videos for this tier.
-    video_limit = models.PositiveIntegerField()
+    #: Maximum number of admins allowed by this tier (excluding superusers).
+    #: If blank, unlimited admins can be chosen.
+    admin_limit = models.PositiveIntegerField(blank=True, null=True)
+
+    #: Maximum number of videos for this tier. If blank, videos are unlimited.
+    video_limit = models.PositiveIntegerField(blank=True, null=True)
 
     #: Whether custom css is permitted for this tier.
     custom_css = models.BooleanField()
 
     #: Whether custom themes are permitted for this tier.
     custom_themes = models.BooleanField()
+
+    #: Whether custom domains are allowed for this tier.
+    custom_domains = models.BooleanField()
 
     class Meta:
         unique_together = ('slug', 'tier_set')
@@ -30,7 +54,7 @@ class SiteTierInfo(models.Model):
     available_tiers = models.ManyToManyField(Tier,
                                              related_name='site_available_set')
     #: The current selected tier (based on the admin's choice).
-    current_tier = models.ForeignKey(Tier)
+    tier = models.ForeignKey(Tier)
 
     #: Date and time when the tier was last changed.
     tier_changed = models.DateTimeField()
@@ -69,14 +93,3 @@ class SiteTierInfo(models.Model):
 
     #: Whether this site has already received a "tiers compliance" email.
     tiers_compliance_email_sent = models.BooleanField(default=False)
-
-
-### register pre-save handler for Tiers and payment due dates
-#models.signals.pre_save.connect(tiers.pre_save_adjust_resource_usage,
-#                                sender=TierInfo)
-#models.signals.post_save.connect(tiers.post_save_send_queued_mail,
-#                                 sender=TierInfo)
-#
-#from localtv.signals import pre_mark_as_active, submit_finished
-#pre_mark_as_active.connect(tiers.pre_mark_as_active)
-#submit_finished.connect(tiers.submit_finished)
