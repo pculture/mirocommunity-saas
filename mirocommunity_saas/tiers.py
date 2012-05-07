@@ -40,27 +40,7 @@ def nightly_warnings():
         ret.add('video_allotment_warning_sent')
     if should_send_five_day_free_trial_warning():
         ret.add('free_trial_warning_sent')
-    #if should_send_inactive_site_warning(site_settings, current_tier):
-    #    ret.add('inactive_site_warning_sent')
-    # NOTE: Commented out the inactive site warning because the
-    # text is not fully-baked.
     return ret
-
-def should_send_inactive_site_warning(current_tier):
-    import mirocommunity_saas.models
-    tier_info = mirocommunity_saas.models.TierInfo.objects.get_current()
-    # If we have already sent the warning, refuse to send it again.
-    if tier_info.inactive_site_warning_sent:
-        return False
-
-    # Grab the time the main site admin last logged in. If it is greater
-    # than six weeks, then yup, the admin gets a warning.
-    SIX_WEEKS = datetime.timedelta(days=7 * 6)
-    main_site_admin = get_main_site_admin()
-    if not main_site_admin:
-        raise ValueError, "Uh, this site has no admin. Something has gone horribly wrong."
-    if (datetime.datetime.utcnow() - main_site_admin.last_login) > SIX_WEEKS:
-        return True
 
 def should_send_video_allotment_warning(current_tier):
     import mirocommunity_saas.models

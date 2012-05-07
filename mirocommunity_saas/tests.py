@@ -700,29 +700,6 @@ class NightlyTiersEmails(BaseTestCase):
 
         self.tiers_cmd = nightly_tiers_events.Command()
 
-    @unittest.skip("text not fully baked")
-    def test_inactive_site_warning(self):
-        # Set up the admin so that the last login was 90 days ago (which should
-        # be long enough ago that the site is "inactive")
-        self.admin.last_login = (datetime.datetime.utcnow() -
-                                 datetime.timedelta(days=90))
-        self.admin.save()
-        self.assertFalse(
-            TierInfo.objects.get_current().inactive_site_warning_sent)
-
-        # Make sure it sends an email...
-        self.tiers_cmd.handle()
-        self.assertEqual(len(mail.outbox), 1)
-        mail.outbox = []
-
-        # And make sure the TierInfo knows that the email was sent...
-        self.assertTrue(
-            TierInfo.objects.get_current().inactive_site_warning_sent)
-
-        # ..so that the next time, it doesn't send any email.
-        self.tiers_cmd.handle()
-        self.assertEqual(len(mail.outbox), 0)
-
     @mock.patch('mirocommunity_saas.tiers.Tier.remaining_videos_as_proportion',
                 mock.Mock(return_value=0.2))
     def test_video_allotment(self):

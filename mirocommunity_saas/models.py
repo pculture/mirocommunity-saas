@@ -92,6 +92,3 @@ class SiteTierInfo(models.Model):
 
     #: Whether this site has ever received a "free trial ending" email.
     free_trial_ending_sent = models.BooleanField(default=False)
-
-    #: Whether this site has already received an "inactive site" warning.
-    inactive_site_warning_sent = models.BooleanField(default=False)

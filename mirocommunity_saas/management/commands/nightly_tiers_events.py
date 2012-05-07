@@ -33,9 +33,7 @@ class Command(BaseCommand):
             'video_allotment_warning_sent': (
                 'mirocommunity_saas/tiers_emails/video_allotment.txt', 'Upgrade your Miro Community site to store more video'),
             'free_trial_warning_sent': (
-                'mirocommunity_saas/tiers_emails/free_trial_warning_sent.txt', 'Only five more days left in your Miro Community free trial'),
-            'inactive_site_warning_sent': (
-                'mirocommunity_saas/tiers_emails/inactive_site_warning_sent.txt', 'Your Miro Community site has been inactive, come back!')
+                'mirocommunity_saas/tiers_emails/free_trial_warning_sent.txt', 'Only five more days left in your Miro Community free trial')
             }
         tier_info = models.TierInfo.objects.get_current()
 
