@@ -124,7 +124,7 @@ def limit_import_approvals(sender, active_set, **kwargs):
         return {'status': -1}
 
 
-@receiver(submit_finished):
+@receiver(submit_finished)
 def check_submission_approval(sender, **kwargs):
     """
     Called after someone has submitted a video. Mark the video unapproved if

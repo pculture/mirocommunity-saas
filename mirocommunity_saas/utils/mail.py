@@ -16,11 +16,9 @@
 # along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 
 import markdown
-import re
 
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.contrib.sites.models import Site
 from django.core.mail import EmailMultiAlternatives
 from django.template.defaultfilters import striptags
 from django.template.loader import render_to_string

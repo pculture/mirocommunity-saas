@@ -15,7 +15,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 
+from django.contrib.sites.models import Site
 from django.db import models
+from paypal.standard.ipn.models import PayPalIPN
 
 
 class Tier(models.Model):
