@@ -40,8 +40,11 @@ class Tier(models.Model):
     #: Whether custom themes are permitted for this tier.
     custom_themes = models.BooleanField()
 
-    #: Whether custom domains are allowed for this tier.
-    custom_domains = models.BooleanField()
+    #: Whether a custom domain is allowed for this tier.
+    custom_domain = models.BooleanField()
+
+    #: Whether users at this level are allowed to run advertising.
+    ads_allowed = models.BooleanField()
 
     class Meta:
         unique_together = ('slug', 'tier_set')
