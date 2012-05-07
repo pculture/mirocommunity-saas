@@ -29,46 +29,6 @@ from uploadtemplate.models import Theme
 
 from mirocommunity_saas.management import commands
 
-def nightly_warnings():
-    import mirocommunity_saas.models
-    '''This returns a dictionary, mapping English-language reasons to
-    localtv.admin.tiers functions to call.'''
-    tier_info = mirocommunity_saas.models.TierInfo.objects.get_current()
-    current_tier = tier_info.get_tier()
-    ret = set()
-    if should_send_video_allotment_warning(current_tier):
-        ret.add('video_allotment_warning_sent')
-    if should_send_five_day_free_trial_warning():
-        ret.add('free_trial_warning_sent')
-    return ret
-
-def should_send_video_allotment_warning(current_tier):
-    import mirocommunity_saas.models
-    tier_info = mirocommunity_saas.models.TierInfo.objects.get_current()
-    # Check for the video warning having already been sent
-    if tier_info.video_allotment_warning_sent:
-        return False
-
-    if current_tier.remaining_videos_as_proportion() < (1/3.0):
-        return True
-
-def should_send_five_day_free_trial_warning():
-    import mirocommunity_saas.models
-    tier_info = mirocommunity_saas.models.TierInfo.objects.get_current()
-
-    time_remaining = tier_info.time_until_free_trial_expires()
-    if time_remaining is None:
-        return False
-    if tier_info.free_trial_warning_sent:
-        return False
-
-    if time_remaining < datetime.timedelta():
-        raise ValueError, "Well, that sucks, the trial is negative."
-
-    if time_remaining <= datetime.timedelta(days=5):
-        return True
-    return False
-
 def user_warnings_for_downgrade(new_tier_name):
     import mirocommunity_saas.models
     warnings = set()

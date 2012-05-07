@@ -82,13 +82,18 @@ class SiteTierInfo(models.Model):
     #: replaced with a query of IPN data.
     #free_trial_available = models.BooleanField(default=True)
 
-    #: Whether a welcome email has been sent to this site's owner.
+    #: The datetime when the welcome email was sent to this site's owner.
     #: TODO: is this really a tiers issue?
-    welcome_email_sent = models.BooleanField(default=False)
+    welcome_email_sent = models.DateTimeField(blank=True, null=True)
 
-    #: Whether a warning has been sent to the site's owner to let them know
-    #: they're approaching their video limit.
-    video_allotment_warning_sent = models.BooleanField(default=False)
+    #: The datetime when a "free trial ending" email was sent to the site's
+    #: owner.
+    free_trial_ending_sent = models.DateTimeField(blank=True, null=True)
 
-    #: Whether this site has ever received a "free trial ending" email.
-    free_trial_ending_sent = models.BooleanField(default=False)
+    #: The last datetime when a warning was sent to the site's owner to let
+    #: them know they're approaching their video limit.
+    video_limit_warning_sent = models.DateTimeField(blank=True, null=True)
+
+    #: The video count for the site the last time that the site's owner
+    #: received a video limit warning.
+    video_count_when_warned = models.PositiveIntegerField(blank=True, null=True)

@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 
+import datetime
 import markdown
 
 from django.conf import settings
@@ -22,8 +23,22 @@ from django.contrib.auth.models import User
 from django.core.mail import EmailMultiAlternatives
 from django.template.defaultfilters import striptags
 from django.template.loader import render_to_string
+from localtv.models import Video
 
 from mirocommunity_saas.models import SiteTierInfo
+
+
+#: The minimum number of days between video limit warnings.
+VIDEO_LIMIT_MIN_DAYS = 5
+#: The minimum ratio of videos which must be used before a warning is sent
+#: to the site owners.
+VIDEO_LIMIT_MIN_RATIO = .66
+#: The minimum change to the remaining number of videos, as a ratio. For
+#: example, a value of .5 would mean that half of the remaining videos must
+#: be used up before a new warning will be sent.
+VIDEO_LIMIT_MIN_CHANGE_RATIO = .5
+#: Number of days before the end of the free trial to warn the site's owners.
+FREE_TRIAL_WARNING_DAYS = 5
 
 
 def send_mail(subject_template, body_template, users, from_email=None,
@@ -75,8 +90,72 @@ def send_welcome_email():
     if tier_info.welcome_email_sent:
         return
     send_mail('mirocommunity_saas/mail/welcome/subject.txt',
-              'mirocommunity_saas/mail/welcome/body.txt',
+              'mirocommunity_saas/mail/welcome/body.md',
               # site owners are currently all superusers.
               User.objects.filter(is_superuser=True))
-    tier_info.welcome_email_sent = True
+    tier_info.welcome_email_sent = datetime.datetime.now()
+    tier_info.save()
+
+
+def send_video_limit_warning():
+    tier_info = SiteTierInfo.objects.get(site=settings.SITE_ID
+                                   ).select_related('tier')
+
+    # Don't send an email if there is no limit.
+    if tier_info.tier.video_limit is None:
+        return
+
+    # Don't send an email if one was sent recently.
+    resend = datetime.timedelta(VIDEO_LIMIT_MIN_DAYS)
+    last_sent = tier_info.video_limit_warning_sent
+    if last_sent is not None and datetime.datetime.now() - last_sent < resend:
+        return
+
+    # Don't send an email if the ratio of used videos is too low.
+    video_limit = tier_info.tier.video_limit
+    video_count = Video.objects.filter(status=Video.ACTIVE,
+                                       site=settings.SITE_ID).count()
+    ratio = float(video_count) / video_limit
+    if ratio < VIDEO_LIMIT_MIN_RATIO:
+        return
+
+    # Don't send an email if the ratio hasn't changed noticeably since the
+    # last email was sent.
+    old_video_count = tier_info.video_count_when_warned
+    if old_video_count is not None:
+        old_ratio = float(old_video_count) / video_limit
+        ratio_change = VIDEO_LIMIT_MIN_CHANGE_RATIO * (1 - old_ratio)
+        next_ratio = old_ratio + ratio_change
+        if ratio < next_ratio:
+            return
+
+    send_mail('mirocommunity_saas/mail/video_limit/subject.txt',
+              'mirocommunity_saas/mail/video_limit/body.md',
+              # site owners are currently all superusers.
+              User.objects.filter(is_superuser=True),
+              extra_context={'ratio': ratio})
+    tier_info.video_limit_warning_sent = datetime.datetime.now()
+    tier_info.video_count_when_warned = video_count
+    tier_info.save()
+
+
+def send_free_trial_ending():
+    tier_info = SiteTierInfo.objects.get(site=settings.SITE_ID)
+    # Only one free trial, so this can only be sent once.
+    if tier_info.free_trial_ending_sent:
+        return
+
+    # If it is not exactly within the right timespan, don't send the email.
+    ### Need a way to calculate when the free trial ends...
+    free_trial_ends = None
+    first_day = free_trial_ends - datetime.timedelta(FREE_TRIAL_WARNING_DAYS)
+    now = datetime.datetime.now()
+    if not (now < free_trial_ends and now > first_day):
+        return
+
+    send_mail('mirocommunity_saas/mail/free_trial/subject.txt',
+              'mirocommunity_saas/mail/free_trial/body.md',
+              # site owners are currently all superusers.
+              User.objects.filter(is_superuser=True))
+    tier_info.free_trial_ending_sent = datetime.datetime.now()
     tier_info.save()

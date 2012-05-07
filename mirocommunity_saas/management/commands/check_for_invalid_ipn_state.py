@@ -18,36 +18,15 @@
 import sys
 import time
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import NoArgsCommand
 
-from mirocommunity_saas import models, tiers
+from mirocommunity_saas.models import TierInfo
 
-class Command(BaseCommand):
 
-    def handle(self, *args, **options):
-        self.handle_check_for_invalid_ipn_state()
-        self.handle_site_settings_emails()
-
-    def handle_site_settings_emails(self):
-        column2template = {
-            'video_allotment_warning_sent': (
-                'mirocommunity_saas/tiers_emails/video_allotment.txt', 'Upgrade your Miro Community site to store more video'),
-            'free_trial_warning_sent': (
-                'mirocommunity_saas/tiers_emails/free_trial_warning_sent.txt', 'Only five more days left in your Miro Community free trial')
-            }
-        tier_info = models.TierInfo.objects.get_current()
-
-        for tier_info_column in tiers.nightly_warnings():
-            # Save a note saying we sent the notice
-            setattr(tier_info, tier_info_column, True)
-            tier_info.save()
-
-            template_name, subject = column2template[tier_info_column] 
-            tiers.send_tiers_related_email(subject, template_name, tier_info)
-
-    def handle_check_for_invalid_ipn_state(self):
+class Command(NoArgsCommand):
+    def handle_noargs(self, **options):
         # Is the site in a paid tier?
-        tier_info = models.TierInfo.objects.get_current()
+        tier_info = TierInfo.objects.get_current()
 
         # First of all: If the site is 'subsidized', then we skip the
         # rest of these checks.
