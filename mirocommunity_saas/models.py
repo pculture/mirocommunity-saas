@@ -95,6 +95,3 @@ class SiteTierInfo(models.Model):
 
     #: Whether this site has already received an "inactive site" warning.
     inactive_site_warning_sent = models.BooleanField(default=False)
-
-    #: Whether this site has already received a "tiers compliance" email.
-    tiers_compliance_email_sent = models.BooleanField(default=False)

@@ -26,7 +26,6 @@ from mirocommunity_saas.management.commands import (
     check_frequently_for_invalid_tiers_state,
     clear_tiers_state,
     nightly_tiers_events,
-    send_tiers_compliance_email,
     send_welcome_email
    )
 
@@ -915,50 +914,6 @@ class TestDisableEnforcement(BaseTestCase):
 
     def testFalse(self):
         self.assertFalse(TierInfo.enforce_tiers(override_setting=True))
-
-class TestTiersComplianceEmail(BaseTestCase):
-
-    urls = 'mirocommunity_saas.urls'
-
-    def setUp(self):
-        super(TestTiersComplianceEmail, self).setUp()
-        self.tier_info = TierInfo.objects.get_current()
-        self.tier_info.tier_name = 'basic'
-        self.tier_info.save()
-        self.create_user(username='admin',
-                         email='admin@gmail.com',
-                         is_superuser=True)
-        self.cmd = send_tiers_compliance_email.Command()
-
-    def test_email_when_over_video_limit(self):
-        for n in range(1000):
-            Video.objects.create(site_id=1, status=Video.ACTIVE)
-        # The first time round, we should get an email.
-        self.cmd.handle()
-        self.assertEqual(1,
-                         len(mail.outbox))
-        # Clear the outbox. When we run the command again, we should not
-        # get an email.
-        mail.outbox = []
-        self.cmd.handle()
-        self.assertEqual(0,
-                         len(mail.outbox))
-
-    def test_email_when_within_limits(self):
-        self.cmd.handle()
-        self.assertEqual(1,
-                         len(mail.outbox))
-
-    def test_no_duplicate_email_when_over_video_limits(self):
-        ti = TierInfo.objects.get_current()
-        ti.already_sent_tiers_compliance_email = True
-        ti.save()
-
-        for n in range(1000):
-            Video.objects.create(site_id=1, status=Video.ACTIVE)
-        self.cmd.handle()
-        self.assertEqual(0,
-                         len(mail.outbox))
 
 class DowngradingCanNotifySupportAboutCustomDomain(BaseTestCase):
 
