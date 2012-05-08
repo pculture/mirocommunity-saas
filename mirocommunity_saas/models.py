@@ -15,6 +15,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 
+import datetime
+
 from django.contrib.sites.models import Site
 from django.db import models
 from paypal.standard.ipn.models import PayPalIPN
@@ -64,23 +66,13 @@ class SiteTierInfo(models.Model):
     #: Date and time when the tier was last changed.
     tier_changed = models.DateTimeField()
 
-    #: The current actual tier (set automatically based on payments). If the
-    #: current tier is changed, but doesn't get confirmed, the site will be
-    #: reset to this value. TODO: Can this be handled by just checking the
-    #: most recent paypal transaction? Probably.
-    #confirmed_tier = models.ForeignKey(Tier)
-
     #: A list of payment objects for this site. This can be used, for example,
     #: to check the next due date for the subscription.
-    payments = models.ManyToManyField(PayPalIPN, blank=True)
+    ipn_set = models.ManyToManyField(PayPalIPN, blank=True)
 
     #: Whether or not the current tier should be enforced by making sure
     #: payments are coming in.
     enforce_payments = models.BooleanField(default=False)
-
-    #: Whether this site has ever had a free trial. This can probably be
-    #: replaced with a query of IPN data.
-    #free_trial_available = models.BooleanField(default=True)
 
     #: The datetime when the welcome email was sent to this site's owner.
     #: TODO: is this really a tiers issue?
@@ -97,3 +89,132 @@ class SiteTierInfo(models.Model):
     #: The video count for the site the last time that the site's owner
     #: received a video limit warning.
     video_count_when_warned = models.PositiveIntegerField(blank=True, null=True)
+
+    def get_current_subscription(self):
+        """
+        Returns ``None`` if there is no active subscription, or a tuple where
+        the first item is the ipn that started the subscription and the second
+        item is either the most recent payment, or ``None`` if there have not
+        been any payments.
+
+        """
+        # For reference - the way that we use paypal is that a new
+        # subscription is started before the old subscription is ended. PayPal
+        # will send subscr_cancel followed by subscr_eot for cancelled
+        # subscriptions. Subscr_modify isn't used by us, and subscr_failed
+        # isn't really relevant here.
+        signups = self.ipn_set.filter(flag=False,
+                                      txn_type='subscr_signup')
+
+        try:
+            latest_signup = signups.order_by('-created_at')[0]
+        except PayPalIPN.DoesNotExist:
+            return (None, None)
+
+        try:
+            # We use eot as the ending since (in theory) we could have
+            # subscriptions that actually do run out.
+            self.ipn_set.get(subscr_id=latest_signup.subscr_id,
+                             flag=False,
+                             txn_type='subscr_eot')
+        except PayPalIPN.DoesNotExist:
+            pass
+        else:
+            return (None, None)
+
+        try:
+            latest_payment = self.ipn_set.filter(flag=False,
+                                            txn_type='subscr_payment',
+                                            subscr_id=latest_signup.subscr_id)
+        except PayPalIPN.DoesNotExist:
+            latest_payment = None
+
+        return (latest_signup, latest_payment)
+
+    @property
+    def subscription(self):
+        if not hasattr(self, '_subscription'):
+            self._subscription = self.get_current_subscription()
+        return self._subscription
+
+    def _period_to_timedelta(self, period_str):
+        """
+        Converts an IPN period string to a timedelta representing that string.
+        """
+        period_len, period_unit = period_str.split(' ')
+        period_len = int(period_len)
+        if period_unit == 'D':
+            period_unit = datetime.timedelta(1)
+        else:
+            # We don't support other periods at the moment...
+            raise ValueError("Unknown period unit: {0}".format(period_unit))
+
+        return period_len * period_unit
+
+    @property
+    def payments_expected(self):
+        """
+        ``True`` if payments are being enforced and the site is on a paid
+        tier; ``False`` otherwise.
+        """
+        return self.enforce_payments and self.tier.price > 0
+
+    def get_next_due_date(self):
+        """
+        Returns the datetime when the next payment is expected, or ``None`` if
+        there is not an active subscription. This does not take into account
+        whether payments are actually enforced, or whether the current tier is
+        paid.
+
+        """
+        latest_signup, latest_payment = self.subscription
+
+        if latest_signup is None:
+            return None
+
+        if latest_payment is None:
+            return self.get_free_trial_end()
+
+        period = self._period_to_timedelta(latest_signup.period3)
+        return latest_payment.payment_date + period
+
+    def get_free_trial_end(self):
+        """
+        Returns the datetime when the current subscription's free trial ends
+        or ended. If there is no current subscription, returns ``None``; if
+        the subscription does not include a free trial, returns the start of
+        the subscription. This does not take into account whether payments are
+        actually enforced, or whether the current tier is paid.
+
+        """
+        latest_signup = self.subscription[0]
+
+        # If they have no signup, then the question is meaningless.
+        if latest_signup is None:
+            return None
+
+        start = latest_signup.subscr_date
+
+        # If there is no free trial, then return the start of the
+        # subscription.
+        if not latest_signup.period1:
+            return start
+
+        period = self._period_to_timedelta(latest_signup.period1)
+        return start + period
+
+    @property
+    def in_free_trial(self):
+        """
+        Returns ``True`` if the site is currently in a free trial and
+        ``False`` otherwise.  This does not take into account whether payments
+        are actually enforced, or whether the current tier is paid.
+
+        """
+        end = self.get_free_trial_end()
+
+        # If there's no subscription, there can't be a free trial.
+        if end is None:
+            return False
+
+        return datetime.datetime.now() < end

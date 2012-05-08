@@ -145,12 +145,15 @@ def send_free_trial_ending():
     if tier_info.free_trial_ending_sent:
         return
 
+    # If they haven't started a free trial, don't send.
+    end = tier_info.get_free_trial_end()
+    if end is None:
+        return
+
     # If it is not exactly within the right timespan, don't send the email.
-    ### Need a way to calculate when the free trial ends...
-    free_trial_ends = None
-    first_day = free_trial_ends - datetime.timedelta(FREE_TRIAL_WARNING_DAYS)
+    warn_after = end - datetime.timedelta(FREE_TRIAL_WARNING_DAYS)
     now = datetime.datetime.now()
-    if not (now < free_trial_ends and now > first_day):
+    if not (now < end and now > warn_after):
         return
 
     send_mail('mirocommunity_saas/mail/free_trial/subject.txt',

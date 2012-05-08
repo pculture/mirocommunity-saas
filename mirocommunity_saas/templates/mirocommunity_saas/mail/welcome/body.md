@@ -14,16 +14,13 @@ You currently have a {{ tier.name|capfirst }} account for http://{{ site.domain 
 * You can run advertising{% endif %}{% if tier.custom_templates %}
 * Fully custom templating{% endif %}
 
-{% comment %}
-We need a way to check whether they're in a 30 day trial on the tier object.
-{% if in_free_trial %}Your 30-day free trial lasts until midnight on {{ next_payment_due_date }}. If
+{% if tier_info.in_free_trial %}Your 30-day free trial lasts until midnight on {{ tier_info.get_free_trial_end|date:"F j, Y" }}. If
 you don't want to continue using Miro Community at a paid level, just switch to
 "basic" before the trial ends and you won't be charged (we'll email you 5 days
-before the trial ends to remind you). Otherwise, you'll pay just ${{ tier_obj.dollar_cost }}/month
+before the trial ends to remind you). Otherwise, you'll pay just ${{ tier_info.tier.price }}/month
 for the service as long as your account is open. You can upgrade or downgrade at
 any time at http://{{ site.domain}}{% url localtv_admin_tier %}
 {% endif %}
-{% endcomment %}
 
 Still have questions? Don't hesitate to get in touch:
 <support@mirocommunity.org>.
