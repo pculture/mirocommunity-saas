@@ -8,31 +8,14 @@ from django.db import models
 class Migration(SchemaMigration):
 
     def forwards(self, orm):
-        # Adding model 'TierInfo'
-        db.create_table('localtv_tierinfo', (
-            ('id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
-            ('payment_due_date', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-            ('free_trial_available', self.gf('django.db.models.fields.BooleanField')(default=True)),
-            ('free_trial_started_on', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-            ('in_free_trial', self.gf('django.db.models.fields.BooleanField')(default=False)),
-            ('payment_secret', self.gf('django.db.models.fields.CharField')(default='', max_length=255, blank=True)),
-            ('current_paypal_profile_id', self.gf('django.db.models.fields.CharField')(default='', max_length=255, blank=True)),
-            ('video_allotment_warning_sent', self.gf('django.db.models.fields.BooleanField')(default=False)),
-            ('free_trial_warning_sent', self.gf('django.db.models.fields.BooleanField')(default=False)),
-            ('already_sent_welcome_email', self.gf('django.db.models.fields.BooleanField')(default=False)),
-            ('inactive_site_warning_sent', self.gf('django.db.models.fields.BooleanField')(default=False)),
-            ('user_has_successfully_performed_a_paypal_transaction', self.gf('django.db.models.fields.BooleanField')(default=False)),
-            ('already_sent_tiers_compliance_email', self.gf('django.db.models.fields.BooleanField')(default=False)),
-            ('fully_confirmed_tier_name', self.gf('django.db.models.fields.CharField')(default='', max_length=255, blank=True)),
-            ('should_send_welcome_email_on_paypal_event', self.gf('django.db.models.fields.BooleanField')(default=False)),
-            ('waiting_on_payment_until', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-            ('site_settings', self.gf('django.db.models.fields.related.OneToOneField')(to=orm['localtv.SiteSettings'], unique=True, db_column='sitelocation_id')),
-        ))
-        db.send_create_signal('mirocommunity_saas', ['TierInfo'])
+        # Adding field 'TierInfo.tier_name'
+        db.add_column('localtv_tierinfo', 'tier_name',
+                      self.gf('django.db.models.fields.CharField')(default='basic', max_length=255),
+                      keep_default=False)
 
     def backwards(self, orm):
-        # Deleting model 'TierInfo'
-        db.delete_table('localtv_tierinfo')
+        # Deleting field 'TierInfo.tier_name'
+        db.delete_column('localtv_tierinfo', 'tier_name')
 
     models = {
         'auth.group': {
@@ -50,7 +33,7 @@ class Migration(SchemaMigration):
         },
         'auth.user': {
             'Meta': {'object_name': 'User'},
-            'date_joined': ('django.db.models.fields.DateTimeField', [], {'default': 'datetime.datetime.now'}),
+            'date_joined': ('django.db.models.fields.DateTimeField', [], {'default': 'datetime.datetime(2012, 5, 8, 16, 25, 54, 591114)'}),
             'email': ('django.db.models.fields.EmailField', [], {'max_length': '75', 'blank': 'True'}),
             'first_name': ('django.db.models.fields.CharField', [], {'max_length': '30', 'blank': 'True'}),
             'groups': ('django.db.models.fields.related.ManyToManyField', [], {'to': "orm['auth.Group']", 'symmetrical': 'False', 'blank': 'True'}),
@@ -58,7 +41,7 @@ class Migration(SchemaMigration):
             'is_active': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
             'is_staff': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'is_superuser': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
-            'last_login': ('django.db.models.fields.DateTimeField', [], {'default': 'datetime.datetime.now'}),
+            'last_login': ('django.db.models.fields.DateTimeField', [], {'default': 'datetime.datetime(2012, 5, 8, 16, 25, 54, 590959)'}),
             'last_name': ('django.db.models.fields.CharField', [], {'max_length': '30', 'blank': 'True'}),
             'password': ('django.db.models.fields.CharField', [], {'max_length': '128'}),
             'user_permissions': ('django.db.models.fields.related.ManyToManyField', [], {'to': "orm['auth.Permission']", 'symmetrical': 'False', 'blank': 'True'}),
@@ -124,4 +107,3 @@ class Migration(SchemaMigration):
     }
 
     complete_apps = ['mirocommunity_saas']
-
