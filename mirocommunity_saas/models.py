@@ -50,12 +50,13 @@ class Tier(models.Model):
     #: Whether users at this level are allowed to run advertising.
     ads_allowed = models.BooleanField()
 
-    class Meta:
-        unique_together = ('slug', 'tier_set')
+    #: Whether the crappy newsletter feature is enabled for this tier.
+    #: Included for completeness.
+    newsletter = models.BooleanField()
 
 
 class SiteTierInfo(models.Model):
-    site = models.ForeignKey(Site)
+    site = models.OneToOneField(Site)
 
     #: A list of tiers that the site admin can choose from.
     available_tiers = models.ManyToManyField(Tier,

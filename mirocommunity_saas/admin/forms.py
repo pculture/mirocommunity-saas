@@ -1,11 +1,27 @@
-from django import forms
-from django.forms.models import modelformset_factory
+# Miro Community - Easiest way to make a video website
+#
+# Copyright (C) 2010, 2011, 2012 Participatory Culture Foundation
+# 
+# Miro Community is free software: you can redistribute it and/or modify it
+# under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your
+# option) any later version.
+# 
+# Miro Community is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+# 
+# You should have received a copy of the GNU Affero General Public License
+# along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
+
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from django.template import defaultfilters
+from django.forms.models import modelformset_factory
+from django.template.defaultfilters import pluralize
 
-from mirocommunity_saas.models import TierInfo
-from mirocommunity_saas import tiers
+from mirocommunity_saas.models import Tier
 
 from localtv.models import Video
 
@@ -17,9 +33,8 @@ from localtv.admin.forms import (EditSettingsForm as _EditSettingsForm,
 class EditSettingsForm(_EditSettingsForm):
     def __init__(self, *args, **kwargs):
         _EditSettingsForm.__init__(self, *args, **kwargs)
-        tier_info = self.tier_info = TierInfo.objects.get_current()
-        if (tier_info.enforce_tiers() and
-            not tier_info.get_tier().permit_custom_css()):
+        self.tier = Tier.objects.get(sitetierinfo__site=settings.SITE_ID)
+        if not self.tier.custom_css:
             # Uh-oh: custom CSS is not permitted!
             #
             # To handle only letting certain paid users edit CSS,
@@ -27,7 +42,7 @@ class EditSettingsForm(_EditSettingsForm):
             #
             # 1. Cosmetically, we set the CSS editing box's CSS class
             # to be 'hidden'. (We have some CSS that makes it not show
-            # up.)
+            # up.) SB: Not sure why we don't just remove the field...
             css_field = self.fields['css']
             css_field.label += ' (upgrade to enable this form field)'
             css_field.widget.attrs['readonly'] = True
@@ -38,13 +53,15 @@ class EditSettingsForm(_EditSettingsForm):
 
     def clean_css(self):
         css = self.cleaned_data.get('css')
-        # Does thes SiteSettings permit CSS modifications? If so,
-        # return the data the user inputted.
-        if (not self.tier_info.enforce_tiers() or
-            self.tier_info.get_tier().permit_custom_css()):
+        # Does the current tier permit custom CSS? If so, return the data the
+        # user submitted.
+        if self.tier.custom_css:
             return css # no questions asked
 
         # We permit the value if it's the same as self.instance has:
+        # SB: Leaving this for now, for backwards-compatibility, but again:
+        # if css isn't allowed, we should probably not be storing it. This is
+        # probably only here because we didn't remove the field on __init__.
         if self.instance.css == css:
             return css
 
@@ -58,58 +75,46 @@ class AuthorForm(_AuthorForm):
         _AuthorForm.__init__(self, *args, **kwargs)
         ## Add a note to the 'role' help text indicating how many admins
         ## are permitted with this kind of account.
-        tier_info = TierInfo.objects.get_current()
-        tier = tier_info.get_tier()
-        if tier.admins_limit() is not None:
-            message = 'With a %s, you may have %d administrator%s.' % (
-                tier_info.get_tier_name_display(),
-                tier.admins_limit(),
-                defaultfilters.pluralize(tier.admins_limit()))
+        self.tier = Tier.objects.get(sitetierinfo__site=settings.SITE_ID)
+        if self.tier.admin_limit is not None:
+            # For backwards-compatibility, pretend the site owner (a
+            # superuser) counts toward the limit.
+            limit = self.tier.admin_limit + 1
+            message = ('With a {tier_name}, you may have {limit} '
+                       'administrator{s}.').format(tier_name=self.tier.name,
+                                                   limit=limit,
+                                                   s=pluralize(limit))
             self.fields['role'].help_text = message
 
     def clean_role(self):
-        tier_info = TierInfo.objects.get_current()
-        tier = tier_info.get_tier()
-        if tier_info.enforce_tiers():
-            future_role = self.cleaned_data['role']
+        role = self.cleaned_data['role']
 
-            looks_good = self._validate_role_with_tiers_enforcement(
-                future_role, tier)
-            if not looks_good:
-                permitted_admins = tier.admins_limit()
-                raise ValidationError("You already have %d admin%s in your site. Upgrade to have access to more." % (
-                    permitted_admins,
-                    defaultfilters.pluralize(permitted_admins)))
+        # Nothing to check if they aren't being set to admin.
+        if role != 'admin':
+            return role
 
-        return self.cleaned_data['role']
+        # Nothing to check if there is no admin limit.
+        if self.tier.admin_limit is not None:
+            return role
 
-    def _validate_role_with_tiers_enforcement(self, future_role, tier):
-        # If the user tried to create an admin, but the tier does not
-        # permit creating another admin, raise an error.
-        permitted_admins = tier.admins_limit()
+        # Nothing to check if the user is already an admin.
+        if 'role' not in self.changed_data:
+            return role
 
-        # Some tiers permit an unbounded number of admins. Then, anything goes.
-        if permitted_admins is None:
-            return True
+        # And finally, we're good if there's room for another admin.
+        admin_count = self.site_settings.admins.exclude(is_superuser=True,
+                                                        is_active=True
+                                              ).count()
+        if (admin_count + 1) <= self.tier.admin_limit:
+            return role
 
-        # All non-admin values are permitted
-        if future_role !='admin':
-            return True
+        # For backwards-compatibility, pretend the site owner (a
+        # superuser) counts toward the limit.
+        limit = self.tier.admin_limit + 1
+        raise ValidationError("You already have {limit} admin{s} in your "
+                              "site. Upgrade to have access to more.".format(
+                                        limit=limit, s=pluralize(limit)))
 
-        if self.instance and self.site_settings.user_is_admin(
-            self.instance):
-            return True # all role values permitted if you're already an admin
-
-        # Okay, so now we know we are trying to make someone an admin in a
-        # tier where admins are limited.
-        #
-        # The question becomes: is there room for one more?
-        num_admins = tiers.number_of_admins_including_superuser()
-        if (num_admins + 1) <= permitted_admins:
-            return True
-
-        # Otherwise, gotta say no.
-        return False
 
 AuthorFormSet = modelformset_factory(User,
                                      form=AuthorForm,
@@ -119,26 +124,33 @@ AuthorFormSet = modelformset_factory(User,
 class BulkEditVideoFormSet(_BulkEditVideoFormSet):
 
     def clean(self):
-        tier_info = TierInfo.objects.get_current()
-        remaining_videos = tier_info.get_tier().remaining_videos()
-        self.videos_to_approve = remaining_videos
+        tier = Tier.objects.get(sitetierinfo__site=settings.SITE_ID)
+        self.approval_count = 0
         _BulkEditVideoFormSet.clean(self)
-        if self.videos_to_approve < 0:
-            # approved too many Videos!
-            raise forms.ValidationError('You can only approve %i videos, '
-                                        'but tried to approve %i instead. '
-                                        'Upgrade to approve more.' % (
-                    remaining_videos,
-                    remaining_videos - self.videos_to_approve))
+        if tier.video_limit is not None:
+            video_count = Video.objects.filter(status=Video.ACTIVE,
+                                               site=settings.SITE_ID
+                                      ).count()
+            remaining = tier.video_limit - video_count
+            if remaining < 0:
+                raise ValidationError('You already have {0} videos over your '
+                                      'limit ({1}). Upgrade to approve '
+                                      'more.'.format(-1 * remaining,
+                                                     tier.video_limit))
+            elif self.approval_count > remaining:
+                raise ValidationError('You can only approve {0} videos, '
+                                      'but tried to approve {1} instead. '
+                                      'Upgrade to approve more.'.format(
+                                      remaining, self.approval_count))
 
     def action_approve(self, form):
         if form.instance.status != Video.ACTIVE:
-            self.videos_to_approve -= 1
+            self.approval_count += 1
         _BulkEditVideoFormSet.action_approve(self, form)
 
     def action_feature(self, form):
         if form.instance.status != Video.ACTIVE:
-            self.videos_to_approve -= 1
+            self.approval_count += 1
         _BulkEditVideoFormSet.action_feature(self, form)
 
 VideoFormSet = modelformset_factory(

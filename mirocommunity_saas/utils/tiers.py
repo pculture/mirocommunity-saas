@@ -35,7 +35,7 @@ def admins_to_demote(site, tier):
         return []
 
     site_settings = SiteSettings.objects.get(site=site)
-    admins = site_settings.admins.exclude(is_superuser=True)
+    admins = site_settings.admins.exclude(is_superuser=True, is_active=True)
     # If the number of admins is already below the limit, we're done.
     demotee_count = admins.count() - tier.admin_limit
     if demotee_count <= 0:
@@ -109,7 +109,8 @@ def limit_import_approvals(sender, active_set, **kwargs):
     # Perhaps this should be done by just running tiers enforcement after the
     # import?
     using = sender._state.db
-    tier = Tier.objects.db_manager(using).get(tierinfo__site=settings.SITE_ID)
+    tier = Tier.objects.db_manager(using).get(
+                                          sitetierinfo__site=settings.SITE_ID)
     videos = Video.objects.using(using).filter(status=Video.ACTIVE)
     remaining_count = tier.video_limit - videos.count()
     if remaining_count > active_set.count():
@@ -136,7 +137,8 @@ def check_submission_approval(sender, **kwargs):
         return
 
     using = sender._state.db
-    tier = Tier.objects.db_manager(using).get(tierinfo__site=settings.SITE_ID)
+    tier = Tier.objects.db_manager(using).get(
+                                          sitetierinfo__site=settings.SITE_ID)
     videos = Video.objects.using(using).filter(status=Video.ACTIVE)
     remaining_count = tier.video_limit - videos.count()
     if remaining_count < 0:
