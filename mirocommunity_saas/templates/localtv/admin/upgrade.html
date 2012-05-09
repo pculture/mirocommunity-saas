@@ -38,47 +38,70 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 <div class="clear">
   <div id="upgrade_title">
     <h1>Upgrade Your Site</h1>
-    {% if offer_free_trial %}
+    {% if not tier_info.subscription.0 %}
     <p>All <strong>new</strong> monthly subscribers get a <strong>free 30 day</strong> trial.</p> 
     {% endif %}
   </div><!-- // upgrade_title -->
-  
-{% if tier_info.tier_name == 'basic' %}
-<div id="basic_plan" class="clear">
-    <h1>Your current plan: <strong>basic</strong></h1>
-    <p>{% if tier_info.tier_name == 'basic' %}
-      {% if offer_free_trial %}
-        Easily upgrade to receive a free 30 day trial.
-      {% else %}
-        To upgrade, make a choice below.
-      {% endif %}
-      {% else %}
-        You can always downgrade to the basic plan.
-      {% endif %}
-    </p>
 
-</div><!-- // basic_plan -->
-
+  {% for tier, form in forms %}
+    {# for now, just display them all - don't worry about marking any #}
+    {# of them as active. #}
+    <div id="{{ tier.slug }}_plan" class="clear">
+      <div id="hdr">
+        <h1>{{ tier.name }}</h1>
+        <h2>{% if tier.price %}${{ tier.price }}{% else %}Free{% endif %}</h2>
+      </div>
+      <ul>
+        <li>Features!</li>
+        {# tier feature list - includable template here and in email? #}
+      </ul>
+      <div class="ft">
+        <p>{{ tier.name }}</p>
+        {% if tier_info.enforce_payments %}
+          <form action="{% if use_paypal_sandbox %}{{ paypal_sandbox_url }}{% else %}{{ paypal_url }}{% endif %}" method="post">
+        {% else %}
+          <form action="{{ form.return_url.initial }}" method="post">{% csrf_token %}
+        {% endif %}
+          {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+          <div class="buttons_like_links">
+            <button type="submit">
+              Switch to {{ tier.name }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  {% endfor %}
+{% comment %}
+{% if tier_info.tier.slug == 'basic' %}
+  <div id="basic_plan" class="clear">
+      <h1>Your current plan: <strong>basic</strong></h1>
+      <p>{% if offer_free_trial %}
+           Easily upgrade to receive a free 30 day trial.
+         {% else %}
+           To upgrade, make a choice below.
+         {% endif %}
+      </p>
+  </div>
 {% else %}
-
-<div id="switchbasic" class="clear">
-  <h1>Basic <strong>Free</strong></h1>
-    <p>{% if tier_info.tier_name == 'basic' %}
-      {% if offer_free_trial %}
-        Easily upgrade to receive a free 30 day trial.
-      {% else %}
-        To upgrade, make a choice below.
+  <div id="switchbasic" class="clear">
+    <h1>Basic <strong>Free</strong></h1>
+      <p>{% if tier_info.tier_name == 'basic' %}
+        {% if offer_free_trial %}
+          Easily upgrade to receive a free 30 day trial.
+        {% else %}
+          To upgrade, make a choice below.
+        {% endif %}
+        {% else %}
+          500 videos, your own logo and background.
+        {% endif %}
+      </p>
+      {% if tier_info.tier_name != 'basic' %}{# Note: all changes to "basic" are downgrades #}
+      {% with "Switch to basic" as message %}{% with "basic" as target_tier_name %}{% with "basic" as tier_name %}{% with would_lose_for_tier.basic as go_to_warnings %}
+      {% include 'localtv/admin/downgrade_snippet.html' %}
+      {% endwith %}{% endwith %}{% endwith %}{% endwith %}
       {% endif %}
-      {% else %}
-        500 videos, your own logo and background.
-      {% endif %}
-    </p>
-    {% if tier_info.tier_name != 'basic' %}{# Note: all changes to "basic" are downgrades #}
-    {% with "Switch to basic" as message %}{% with "basic" as target_tier_name %}{% with "basic" as tier_name %}{% with would_lose_for_tier.basic as go_to_warnings %}
-    {% include 'localtv/admin/downgrade_snippet.html' %}
-    {% endwith %}{% endwith %}{% endwith %}{% endwith %}
-    {% endif %}
-</div><!-- // basic_plan -->
+  </div>
 {% endif %}
 
 <div id="starter_pack" class="{% if tier_info.tier_name == 'plus' %}selected {% endif %}{% if plus_would_be_downgrade %}switch_to {% endif %} plan">
@@ -146,6 +169,6 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
     <p>Max</p>
   </div><!-- // ft -->
 </div><!-- // delcisious_plan -->
+{% endcomment %}
 </div><!-- // clear -->
 {% endblock %}
-

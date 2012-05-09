@@ -16,12 +16,14 @@
 # along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 
 from django.conf import settings
+from django.contrib.sites.models import Site
 from django.dispatch import receiver
+from django.utils.crypto import constant_time_compare, salted_hmac
 from localtv.models import SiteSettings, Video
 from localtv.signals import pre_mark_as_active, submit_finished
 from uploadtemplate.models import Theme
 
-from mirocommunity_saas.models import Tier
+from mirocommunity_saas.models import Tier, SiteTierInfo
 
 
 def admins_to_demote(site, tier):
@@ -94,6 +96,22 @@ def enforce_tier(site, tier):
 
     if not tier.custom_themes:
         Theme.objects.filter(default=True).update(default=False)
+
+
+def make_tier_change_token(new_tier):
+    site = Site.objects.get_current()
+    tier_info = SiteTierInfo.objects.get(site=site)
+    # We hash on the site domain to make sure we stay on the same site, and on
+    # the tier_name/tier_changed so that the link will stop working once it's
+    # used.
+    value = (unicode(new_tier.id) + settings.SECRET_KEY + site.domain +
+             unicode(tier_info.tier_id) + tier_info.tier_changed.isoformat())
+    key_salt = "mirocommunity_saas.views.TierView"
+    return salted_hmac(key_salt, value).hexdigest()[::2]
+
+
+def check_tier_change_token(new_tier, token):
+    return constant_time_compare(make_tier_change_token(new_tier), token)
 
 
 @receiver(pre_mark_as_active)

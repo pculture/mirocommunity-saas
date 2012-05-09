@@ -25,11 +25,12 @@ from paypal.standard.ipn.models import PayPalIPN
 class Tier(models.Model):
     #: Human-readable name.
     name = models.CharField(max_length=30)
-    #: Unique slug.
+    #: Slug. Not enforced as unique, but should be unique on a per-site basis
+    #: as unique among the available tiers.
     slug = models.SlugField(max_length=30)
 
     #: Price (USD) for the tier.
-    price = models.PositiveIntegerField()
+    price = models.PositiveIntegerField(default=0)
 
     #: Maximum number of admins allowed by this tier (excluding superusers).
     #: If blank, unlimited admins can be chosen.
@@ -39,20 +40,20 @@ class Tier(models.Model):
     video_limit = models.PositiveIntegerField(blank=True, null=True)
 
     #: Whether custom css is permitted for this tier.
-    custom_css = models.BooleanField()
+    custom_css = models.BooleanField(default=False)
 
     #: Whether custom themes are permitted for this tier.
-    custom_themes = models.BooleanField()
+    custom_themes = models.BooleanField(default=False)
 
     #: Whether a custom domain is allowed for this tier.
-    custom_domain = models.BooleanField()
+    custom_domain = models.BooleanField(default=False)
 
     #: Whether users at this level are allowed to run advertising.
-    ads_allowed = models.BooleanField()
+    ads_allowed = models.BooleanField(default=False)
 
     #: Whether the crappy newsletter feature is enabled for this tier.
     #: Included for completeness.
-    newsletter = models.BooleanField()
+    newsletter = models.BooleanField(default=False)
 
 
 class SiteTierInfo(models.Model):
@@ -109,7 +110,7 @@ class SiteTierInfo(models.Model):
 
         try:
             latest_signup = signups.order_by('-created_at')[0]
-        except PayPalIPN.DoesNotExist:
+        except IndexError:
             return (None, None)
 
         try:
@@ -219,3 +220,12 @@ class SiteTierInfo(models.Model):
             return False
 
         return datetime.datetime.now() < end
+
+    @property
+    def gets_free_trial(self):
+        """
+        Returns ``True`` if the site has never had a subscription and
+        ``False`` otherwise.
+
+        """
+        return self.subscription[0] is None
