@@ -1,0 +1,224 @@
+@import "compass";
+
+#content {
+  width: 940px !important;
+}
+
+#upgrade_title {
+  margin: 0 0 30px 0;
+  background: transparent url(../../images/admin/icon_upgrade_shield.png) 0 0 no-repeat;
+  padding: 5px 0 30px 55px;
+  border-bottom: 1px #DDD solid;
+}
+
+#upgrade_title h1 {
+  font-size: 25px;
+  font-weight: bold;
+  color: #523d30;
+  letter-spacing: -1px;
+}
+
+#upgrade_title p {
+  color: #656565;
+  margin: 5px 0 0 0;
+}
+
+#upgrade_title p strong {
+  color: #333;
+  font-weight: bold;
+}
+
+// Specificity. At least this is now sass.
+#content > .plan {
+  width: 300px;
+  margin: 25px 20px 0 0;
+  float: left;
+
+  &:last-child{
+    margin-right: 0;
+  }
+
+  & > .hdr{
+    height: 105px;
+    @include border-radius(10px 10px 0 0);
+
+    & > h1, & > h2{
+      font-family: Helvetica, Arial, sans-serif;
+      margin: 0;
+      text-align: center;
+      text-shadow: 0 1px 0 rgba(0, 0, 0, .1);
+    }
+    & > h1{
+      color: rgba(255, 255, 255, .6);
+      font-size: 25px;
+      padding: 25px 0 0 0;
+    }
+    & > h2{
+      color: rgba(255, 255, 255, .8);
+      font-size: 30px;
+      padding-top: 10px;
+      letter-spacing: -1px;
+      // Silly override.
+      float: none;
+    }
+  }
+  & > .body{
+    & > ul{
+      border-color: #dadada;
+      border-style: solid;
+      border-width: 0 1px 0 1px;
+      & > li{
+        padding: 20px;
+        @include background(linear-gradient(top, #fff, #eaeaea));
+        @include box-shadow(inset 0 0 0 1px #fff);
+        border-bottom: 1px solid #d9d9d9;
+        color: #555;
+        font-size: 15px;
+        text-shadow: 0 1px 0 #FFF;
+        & > strong{
+          background: #DDD;
+          color: #858585;
+          text-shadow: 0 1px 0 #FFF;
+          font-weight: bold;
+          padding: 6px 8px 5px 8px;
+          @include border-radius(4px);
+          @include box-shadow(inset 0 1px 2px #BBB);
+        }
+      }
+    }
+  }
+  & > .ft{
+    @include border-radius(0 0 10px 10px);
+    height: 66px;
+
+    & > form{
+      width: 100%;
+    }
+
+    & > form > button, & > p{
+      // 100% height.
+      height: 66px;
+      line-height: 66px;
+      font-size: 20px;
+      font-weight:bold;
+      text-align: center;
+      font-family:"Lucida Grande", Tahoma, Arial, Verdana, sans-serif;
+      text-shadow: 0 1px 0 rgba(0, 0, 0, .1);
+    }
+    & > form > button{
+      display: block;
+      float: none;
+      padding: 0;
+      margin: 0;
+      border: 0;
+      width: 100%;
+
+      background-color: transparent;
+      cursor:pointer;
+
+      color: rgba(255,255,255, 0.3);
+      text-decoration: underline;
+      & > em{
+        margin: 0 auto;
+        color: rgba(255, 255, 255, .9);;
+      }
+    }
+  }
+  &.selected{
+    & > .hdr, & > .ft{
+      @include background(linear-gradient(top, #5B5B5B, #353535));
+      @include box-shadow(0 0 0 1px #484848);
+      border-top: 1px solid #ABABAB;
+      margin: 1px;
+    }
+    & > .hdr{
+      & > h1{
+        color: rgba(255, 255, 255, .8);
+      }
+      & > h2{
+        color: rgba(255, 255, 255, .9);
+      }
+    }
+    & > .ft > p{
+      color: rgba(255, 255, 255, .9);
+    }
+  }
+}
+
+// Plus plan
+
+#plus_plan{
+  .hdr, .ft{
+    @include background(linear-gradient(top, #3590B4, #1E4C79));
+    @include box-shadow(0 0 0 1px #2A6C96);
+    border-top: 1px solid #7FE2EC;
+    margin: 1px;
+  }
+}
+
+// Premium plan
+
+#premium_plan {
+  .hdr, .ft{
+    @include background(linear-gradient(top, #B32E7C, #761B43));
+    @include box-shadow(0 0 0 1px #621A40);
+    border-top: 1px solid #EB73DC;
+    margin: 1px;
+  }
+}
+
+// Max plan
+
+#max_plan {
+  .hdr, .ft{
+    @include background(linear-gradient(top, #36B67C, #207843));
+    @include box-shadow(0 0 0 1px #1A5B38);
+    border-top: 1px solid #70E2C7;
+    margin: 1px;
+  }
+}
+
+// Basic Plan
+
+#basic_plan {
+  width: 941px;
+  height: 49px;
+  display: block;
+  margin: 0 0 0 0;
+
+  & .hdr{
+    height: 100%;
+    float: left;
+    padding: 0 25px 0 0;
+    @include background(linear-gradient(top, #FFCE22, #FFAF1B));
+    @include box-shadow(0 0 0 1px #F5BB28);
+    border-top: 1px solid #FFF227;
+    margin: 1px;
+
+    @include border-radius(5px 0 0 5px);
+
+
+    & > h1, & > h2{
+      font-family: Helvetica, Arial, sans-serif;
+      color: #9e5900;
+      margin: 18px 0 0 25px;
+      font-size: 16px;
+      letter-spacing: -0.5px;
+      text-shadow: 0 1px 0 #ffff00;
+      float: left;
+    }
+    & > h2{min-width: 0;}
+  }
+  & > .body{
+    height: 100%;
+    background: #EFF0BF;
+    border: 1px solid #D9DAAD;
+    & > ul{
+      position: relative;
+      top: 12px;
+      left: 140px;
+      color: #333;
+      float: left;
+    }
+  }
+}

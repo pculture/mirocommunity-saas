@@ -1,3 +1,4 @@
 *.py[co]
 *~
 MiroCommunity_SAAS.egg-info
+.sass-cache

@@ -55,6 +55,9 @@ class Tier(models.Model):
     #: Included for completeness.
     newsletter = models.BooleanField(default=False)
 
+    def __unicode__(self):
+        return u"{name}: {price}".format(name=self.name, price=self.price)
+
 
 class SiteTierInfo(models.Model):
     site = models.OneToOneField(Site)

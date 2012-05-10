@@ -111,7 +111,7 @@ class TierView(TemplateView):
         site = Site.objects.get_current()
         self.tier_info = SiteTierInfo.objects.get(site=site)
         self.tiers = self.tier_info.available_tiers.order_by('price')
-        forms = dict((tier.slug,
+        forms = dict((tier,
                       self.form_class(**self.get_form_kwargs(tier)))
                      for tier in self.tiers)
         return forms
@@ -173,7 +173,7 @@ class TierChangeView(View):
     """
 
     def dispatch(self, request, *args, **kwargs):
-        tier_slug = request.GET.get(self.SLUG_PARAM, '')
+        tier_slug = request.GET.get(TierView.SLUG_PARAM, '')
         self.tier_info = SiteTierInfo.objects.get(site=settings.SITE_ID)
 
         try:
@@ -181,7 +181,7 @@ class TierChangeView(View):
         except Tier.DoesNotExist:
             raise Http404
 
-        token = request.GET.get(self.TOKEN_PARAM, '')
+        token = request.GET.get(TierView.TOKEN_PARAM, '')
         if not check_tier_change_token(self.tier, token):
             raise Http404
 

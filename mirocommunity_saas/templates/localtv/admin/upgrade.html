@@ -18,16 +18,12 @@ You should have received a copy of the GNU Affero General Public License
 along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 {% endcomment %}
 
-{% block body_class %}account" onbeforeunload="return setting_onunload();{% endblock body_class %}
+{% block body_class %}account{% endblock body_class %}
 
 {% load i18n %}
 
 {% block title %}{{ block.super }} - {% trans "Admin - Change site tier" %}{% endblock %}
-{% block head %}
-  {% include "localtv/admin/dirty_form.html" %}
-{% endblock %}
 {% block extrahead %}
-<link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}localtv/css/admin/signup.css" />
 <link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}localtv/css/admin/upgrade.css" />
 {% endblock extrahead %}
 
@@ -35,7 +31,6 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 
 {% block content %}
 {% include "localtv/admin/account_header.html" %}
-<div class="clear">
   <div id="upgrade_title">
     <h1>Upgrade Your Site</h1>
     {% if not tier_info.subscription.0 %}
@@ -43,32 +38,36 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
     {% endif %}
   </div><!-- // upgrade_title -->
 
-  {% for tier, form in forms %}
-    {# for now, just display them all - don't worry about marking any #}
-    {# of them as active. #}
-    <div id="{{ tier.slug }}_plan" class="clear">
-      <div id="hdr">
+  {% for tier,form in forms.iteritems %}
+    <div id="{{ tier.slug }}_plan" class="{% if tier.price %}plan{% endif %}{% if forloop.counter == 2 %} clear{% endif %}{% if tier == tier_info.tier %} selected{% endif %}">
+      <div class="hdr">
         <h1>{{ tier.name }}</h1>
-        <h2>{% if tier.price %}${{ tier.price }}{% else %}Free{% endif %}</h2>
+        <h2>{% if tier.price %}${{ tier.price }}/month{% else %}Free{% endif %}</h2>
       </div>
-      <ul>
-        <li>Features!</li>
-        {# tier feature list - includable template here and in email? #}
-      </ul>
+      <div class="body">
+        <ul>
+          <li>Features!</li>
+          {# tier feature list - includable template here and in email? #}
+        </ul>
+      </div>
       <div class="ft">
-        <p>{{ tier.name }}</p>
-        {% if tier_info.enforce_payments %}
-          <form action="{% if use_paypal_sandbox %}{{ paypal_sandbox_url }}{% else %}{{ paypal_url }}{% endif %}" method="post">
+        {% if tier == tier_info.tier %}
+          <p>Your current plan</p>
         {% else %}
-          <form action="{{ form.return_url.initial }}" method="post">{% csrf_token %}
-        {% endif %}
-          {% for field in form.hidden_fields %}{{ field }}{% endfor %}
-          <div class="buttons_like_links">
+          {% if tier_info.enforce_payments %}
+            <form action="{% if use_paypal_sandbox %}{{ paypal_sandbox_url }}{% else %}{{ paypal_url }}{% endif %}" method="post">
+          {% else %}
+            <form action="{{ form.return_url.value }}" method="post">{% csrf_token %}
+          {% endif %}
+            {% for field in form.hidden_fields %}{{ field }}{% endfor %}
             <button type="submit">
-              Switch to {{ tier.name }}
+              <em>{% if tier.price < tier_info.tier.price %}
+                Switch to {{ tier.name }}{% else %}
+                Upgrade your account{% endif %}
+              </em>
             </button>
-          </div>
-        </form>
+          </form>
+        {% endif %}
       </div>
     </div>
   {% endfor %}
@@ -170,5 +169,4 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
   </div><!-- // ft -->
 </div><!-- // delcisious_plan -->
 {% endcomment %}
-</div><!-- // clear -->
 {% endblock %}
