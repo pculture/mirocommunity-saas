@@ -46,8 +46,22 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
       </div>
       <div class="body">
         <ul>
-          <li>Features!</li>
-          {# tier feature list - includable template here and in email? #}
+
+          <li>Your site, logo &amp; background</li>
+          {% if tier.custom_domain %}
+            <li>Custom domain</li>
+          {% endif %}
+          {% if tier.custom_css %}
+            <li>Custom css</li>
+          {% endif %}
+          <li><strong>{% if tier.video_limit %}{{ tier.video_limit }}{% else %}Unlimited{% endif %}</strong> videos</li>
+          <li><strong>{% if tier.admin_limit == 0 or tier.admin_limit %}{{ tier.admin_limit|add:1 }}{% else %}Unlimited{% endif %}</strong> administrator accounts</li>
+          {% if tier.ads_allowed %}
+            <li>You can run advertising</li>
+          {% endif %}
+          {% if tier.custom_templates %}
+            <li>Fully custom templating</li>
+          {% endif %}
         </ul>
       </div>
       <div class="ft">

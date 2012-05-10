@@ -32,7 +32,7 @@ for Videos][] button on the Manage Sources page.
 [Search for Videos]: http://develop.participatoryculture.org/index.php/MiroCommunityManual/GettingStarted#Search_for_Videos
   
 That's it for now! Have any questions, ideas, or a great story to share about your site? 
-Email support@mirocommunity.org.
+Email <support@mirocommunity.org>.
 
 P.S. A friendly reminder: your free trial with Miro Community will
 expire in 5 days, on {{ tier_info.get_next_due_date|date:"F j, Y" }}. Want to keep your account as is? 

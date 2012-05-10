@@ -28,6 +28,10 @@
   font-weight: bold;
 }
 
+.hdr, .ft, .body{
+  @include box-sizing(border-box);
+}
+
 // Specificity. At least this is now sass.
 #content > .plan {
   width: 300px;
@@ -124,25 +128,6 @@
       }
     }
   }
-  &.selected{
-    & > .hdr, & > .ft{
-      @include background(linear-gradient(top, #5B5B5B, #353535));
-      @include box-shadow(0 0 0 1px #484848);
-      border-top: 1px solid #ABABAB;
-      margin: 1px;
-    }
-    & > .hdr{
-      & > h1{
-        color: rgba(255, 255, 255, .8);
-      }
-      & > h2{
-        color: rgba(255, 255, 255, .9);
-      }
-    }
-    & > .ft > p{
-      color: rgba(255, 255, 255, .9);
-    }
-  }
 }
 
 // Plus plan
@@ -181,44 +166,116 @@
 // Basic Plan
 
 #basic_plan {
+  $basic-height: 49px;
   width: 941px;
-  height: 49px;
+  height: $basic-height;
   display: block;
   margin: 0 0 0 0;
+  @include background(linear-gradient(top, #fff, #eaeaea));
+  border-color: #dadada;
+  border-style: solid;
+  border-width: 1px 0 1px 0;
+  @include border-radius(5px);
+  @include box-sizing(border-box);
 
-  & .hdr{
-    height: 100%;
+  & > .hdr, & > .ft{
+    height: $basic-height - 2px;
+    width: 18%;
     float: left;
-    padding: 0 25px 0 0;
     @include background(linear-gradient(top, #FFCE22, #FFAF1B));
     @include box-shadow(0 0 0 1px #F5BB28);
     border-top: 1px solid #FFF227;
-    margin: 1px;
+  }
 
+  & > .hdr{
     @include border-radius(5px 0 0 5px);
-
+    padding: 0 1em;
+    text-align: center;
 
     & > h1, & > h2{
+      float: none;
+      display: inline;
+    }
+    & > h2{
+      min-width: 0;
+
+      &:before{
+        content: "–";
+        padding: 0 1em;
+      }
+    }
+  }
+  & > .hdr > h1, & > .hdr > h2, & > .ft > form > button, & > .ft > p{
       font-family: Helvetica, Arial, sans-serif;
       color: #9e5900;
-      margin: 18px 0 0 25px;
+      height: $basic-height - 2px;
+      line-height: $basic-height - 2px;
       font-size: 16px;
       letter-spacing: -0.5px;
       text-shadow: 0 1px 0 #ffff00;
-      float: left;
-    }
-    & > h2{min-width: 0;}
   }
   & > .body{
-    height: 100%;
-    background: #EFF0BF;
-    border: 1px solid #D9DAAD;
+    height: $basic-height;
+    width: 64%;
+    float: left;
+    height: $basic-height;
     & > ul{
-      position: relative;
-      top: 12px;
-      left: 140px;
-      color: #333;
-      float: left;
+      text-align: center;
+
+      & > li{
+        display: inline;
+        height: $basic-height;
+        line-height: $basic-height;
+        color: #555;
+        font-size: 15px;
+        text-shadow: 0 1px 0 #FFF;
+
+        & + li:before{
+          content:"–";
+          padding: 0 7px;
+        }
+      }
+    }
+  }
+  & > .ft{
+    @include border-radius(0 5px 5px 0);
+
+    & > form{width: 100%;}
+    & > form > button{
+      cursor: pointer;
+    }
+
+    & > form > button, & > p{
+      background: transparent;
+      border: 0;
+      padding: 0;
+      font-weight: bold;
+      text-align: center;
+      width: 100%;
+    }
+  }
+}
+
+#content > .plan, #basic_plan{
+  &.selected{
+    & > .hdr, & > .ft{
+      @include background(linear-gradient(top, #5B5B5B, #353535));
+      @include box-shadow(0 0 0 1px #484848);
+      border-top: 1px solid #ABABAB;
+    }
+    & > .hdr{
+      & > h1{
+        color: rgba(255, 255, 255, .8);
+        text-shadow: none;
+      }
+      & > h2{
+        color: rgba(255, 255, 255, .9);
+        text-shadow: none;
+      }
+    }
+    & > .ft > p{
+      color: rgba(255, 255, 255, .9);
+      text-shadow: none;
     }
   }
 }
