@@ -94,7 +94,7 @@ class AuthorForm(_AuthorForm):
             return role
 
         # Nothing to check if there is no admin limit.
-        if self.tier.admin_limit is not None:
+        if self.tier.admin_limit is None:
             return role
 
         # Nothing to check if the user is already an admin.
@@ -102,8 +102,8 @@ class AuthorForm(_AuthorForm):
             return role
 
         # And finally, we're good if there's room for another admin.
-        admin_count = self.site_settings.admins.exclude(is_superuser=True,
-                                                        is_active=True
+        admin_count = self.site_settings.admins.exclude(is_superuser=True
+                                              ).exclude(is_active=False
                                               ).count()
         if (admin_count + 1) <= self.tier.admin_limit:
             return role

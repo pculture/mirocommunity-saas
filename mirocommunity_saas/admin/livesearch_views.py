@@ -16,7 +16,7 @@
 # along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 
 from django.conf import settings
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404
 
 from localtv.admin.livesearch.views import LiveSearchApproveVideoView
 from localtv.decorators import require_site_admin, referrer_redirect
@@ -28,7 +28,10 @@ class TierLiveSearchApproveVideoView(LiveSearchApproveVideoView):
 
     def get(self, request, **kwargs):
         if not request.GET.get('queue'):
-            tier = Tier.objects.get(sitetierinfo__site=settings.SITE_ID)
+            try:
+                tier = Tier.objects.get(sitetierinfo__site=settings.SITE_ID)
+            except Tier.DoesNotExist:
+                raise Http404
             if tier.video_limit is not None:
                 video_count = Video.objects.filter(status=Video.ACTIVE,
                                                    site=settings.SITE_ID

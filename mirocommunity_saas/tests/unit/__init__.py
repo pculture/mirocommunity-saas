@@ -15,23 +15,4 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 
-from django.conf import settings
-from django.http import Http404
-
-from mirocommunity_saas.models import Tier
-
-from localtv.decorators import require_site_admin
-
-from localtv.admin.design_views import (
-    newsletter_settings as _newsletter_settings)
-
-@require_site_admin
-def newsletter_settings(request):
-    try:
-        tier = Tier.objects.get(sitetierinfo__site=settings.SITE_ID)
-    except Tier.DoesNotExist:
-        raise Http404
-    if not tier.newsletter:
-        raise Http404
-
-    return _newsletter_settings(request)
+from mirocommunity_saas.tests.unit.enforcement import *

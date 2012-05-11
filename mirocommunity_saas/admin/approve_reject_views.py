@@ -48,16 +48,18 @@ def _video_limit_wrapper(view_func):
                                   id=request.GET.get('video_id'),
                                   site=settings.SITE_ID)
         if video.status != Video.ACTIVE:
-            tier = Tier.objects.get(sitetierinfo__site=settings.SITE_ID)
+            tier = get_object_or_404(Tier,
+                                     sitetierinfo__site=settings.SITE_ID)
             # If the site would exceed its video allotment, then fail with an
             # HTTP 402 and a clear message about why.
-            videos = Video.objects.filter(status=Video.ACTIVE,
-                                          site=settings.SITE_ID)
-            remaining = tier.video_limit - videos.count()
-            if remaining < 1:
-                return HttpResponse(
-                    content=VIDEO_LIMIT_ERROR,
-                    status=402)
+            if tier.video_limit is not None:
+                videos = Video.objects.filter(status=Video.ACTIVE,
+                                              site=settings.SITE_ID)
+                remaining = tier.video_limit - videos.count()
+                if remaining < 1:
+                    return HttpResponse(
+                        content=VIDEO_LIMIT_ERROR,
+                        status=402)
         return view_func(request)
     return wrapper
 
@@ -78,20 +80,23 @@ def approve_all(request):
         # let the other view handle it
         return _approve_all(request)
 
-    tier = Tier.objects.get(sitetierinfo__site=settings.SITE_ID)
-    videos = Video.objects.filter(status=Video.ACTIVE, site=settings.SITE_ID)
-    remaining = tier.video_limit - videos.count()
-    need = len(page.object_list)
+    tier = get_object_or_404(Tier, sitetierinfo__site=settings.SITE_ID)
+    if tier.video_limit is not None:
+        videos = Video.objects.filter(status=Video.ACTIVE,
+                                      site=settings.SITE_ID)
+        remaining = tier.video_limit - videos.count()
+        need = len(page.object_list)
 
-    if need > remaining:
-        return HttpResponse(content=("You are trying to approve {need} videos"
-                                     " at a time.  However, you can approve "
-                                     "only {remaining} more videos under your"
-                                     " video limit. Please upgrade your "
-                                     "account to increase your limit, or "
-                                     "unapprove some older videos to make "
-                                     "space for newer ones.").format(
-                                         need=need, remaining=remaining),
-                            status=402)
+        if need > remaining:
+            return HttpResponse(content=("You are trying to approve {need} "
+                                         "videos at a time.  However, you can"
+                                         " approve only {remaining} more "
+                                         "videos under your video limit. "
+                                         "Please upgrade your account to "
+                                         "increase your limit, or unapprove "
+                                         "some older videos to make "
+                                         "space for newer ones.").format(
+                                             need=need, remaining=remaining),
+                                status=402)
 
     return _approve_all(request)
