@@ -23,37 +23,37 @@ from mirocommunity_saas.admin.views import index, TierView, TierChangeView
 
 
 urlpatterns = patterns('',
-    url(r'^admin/$', index, name='localtv_admin_index'),
-    url(r'^admin/upgrade/$', TierView.as_view(), name='localtv_admin_tier'),
-    url(r'^admin/upgrade/complete/$', TierChangeView.as_view(),
+    url(r'^$', index, name='localtv_admin_index'),
+    url(r'^upgrade/$', TierView.as_view(), name='localtv_admin_tier'),
+    url(r'^upgrade/complete/$', TierChangeView.as_view(),
         name='localtv_admin_tier_change'),
-    url(r'^admin/paypal/', include('paypal.standard.ipn.urls')),
+    url(r'^paypal/', include('paypal.standard.ipn.urls')),
 )
 
 urlpatterns += patterns('mirocommunity_saas.admin.approve_reject_views',
-    url(r'^admin/actions/approve_video/$', 'approve_video',
+    url(r'^actions/approve_video/$', 'approve_video',
         name='localtv_admin_approve_video'),
-    url(r'^admin/actions/feature_video/$', 'feature_video',
+    url(r'^actions/feature_video/$', 'feature_video',
         name='localtv_admin_feature_video'),
-    url(r'^admin/actions/approve_all/$', 'approve_all',
+    url(r'^actions/approve_all/$', 'approve_all',
         name='localtv_admin_approve_all'),
 )
 
 urlpatterns += patterns('mirocommunity_saas.admin.design_views',
-    url(r'^admin/settings/newsletter/$', 'newsletter_settings',
+    url(r'^settings/newsletter/$', 'newsletter_settings',
         name='localtv_admin_newsletter_settings')
 )
 
 urlpatterns += patterns('mirocommunity_saas.admin.livesearch_views',
-    url(r'^admin/add/approve/$', 'approve',
+    url(r'^add/approve/$', 'approve',
         name='localtv_admin_search_video_approve')
 )
 urlpatterns += patterns('localtv.admin',
-    url(r'^admin/settings/$', 'design_views.edit_settings',
+    url(r'^settings/$', 'design_views.edit_settings',
         {'form_class': EditSettingsForm}, 'localtv_admin_settings'),
-    url(r'^admin/users/$', 'user_views.users',
+    url(r'^users/$', 'user_views.users',
         {'formset_class': AuthorFormSet, 'form_class': AuthorForm},
         'localtv_admin_users'),
-    url(r'^admin/bulk_edit/$', 'bulk_edit_views.bulk_edit',
+    url(r'^bulk_edit/$', 'bulk_edit_views.bulk_edit',
         {'formset_class': VideoFormSet}, 'localtv_admin_bulk_edit')
 )
