@@ -26,16 +26,18 @@ from uploadtemplate.models import Theme
 from mirocommunity_saas.models import Tier, SiteTierInfo
 
 
-def admins_to_demote(site, tier):
+def admins_to_demote(tier, site=None):
     """
-    Given a site and a tier, returns a list of admins to demote in order to
-    meet the tier's :attr:`admin_limit`.
+    Given a tier, returns a list of admins for a given site (or the current
+    site if none is given) to demote in order to meet the tier's
+    :attr:`admin_limit`.
 
     """
     # If there is no limit, we're done.
     if tier.admin_limit is None:
         return []
 
+    site = site or settings.SITE_ID
     site_settings = SiteSettings.objects.get(site=site)
     admins = site_settings.admins.exclude(is_superuser=True, is_active=True)
     # If the number of admins is already below the limit, we're done.
@@ -48,30 +50,33 @@ def admins_to_demote(site, tier):
     return list(admins.order_by('-pk')[:demotee_count])
 
 
-def videos_to_deactivate(site, tier):
+def videos_to_deactivate(tier, site=None):
     """
-    Given a site and a tier, returns a list of videos to deactivate in order
-    to meet the tier's :attr:`admin_limit`.
+    Given a tier, returns a list of videos for a given site (or the current
+    site if none is given) to deactivate in order to meet the tier's
+    :attr:`admin_limit`.
 
     """
     # If there is no limit, we're done.
     if tier.video_limit is None:
         return []
 
+    site = site or settings.SITE_ID
     videos = Video.objects.filter(status=Video.ACTIVE, site=site)
     # If the number of videos is already below the limit, we're done.
     deactivate_count = videos.count() - tier.video_limit
     if deactivate_count <= 0:
         return []
 
-    # Okay, we have to deactivate some videos. Let's take the most recently
-    # approved videos, since they're 
-    return list(videos.order_by('-when_approved')[:deactivate_count])
+    # Okay, we have to deactivate some videos. We take the oldest videos in
+    # the hope that they're receiving less attention than the new videos.
+    return list(videos.order_by('when_approved')[:deactivate_count])
 
 
-def enforce_tier(site, tier):
+def enforce_tier(tier, site=None):
     """
-    Enforces a tier's limits for the given site. This includes:
+    Enforces a tier's limits for the given site (or the current site if none
+    is given.) This includes:
 
     - Demoting extra admins.
     - Deactivating extra videos.
@@ -80,6 +85,7 @@ def enforce_tier(site, tier):
 
     """
     demotees = admins_to_demote(site, tier)
+    site = site or settings.SITE_ID
     site_settings = SiteSettings.objects.get(site=site)
     for demotee in demotees:
         site_settings.admins.remove(demotee)
@@ -89,7 +95,8 @@ def enforce_tier(site, tier):
         Video.objects.filter(pk__in=deactivate_pks).update(
                                                     status=Video.UNAPPROVED)
 
-    if not tier.custom_domain:
+    if (not tier.custom_domain and
+        not site.domain.endswith(".mirocommunity.org")):
         # TODO: Email support, or automatically remove the custom domain.
         # Probably also reset the current site's domain name.
         pass

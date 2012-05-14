@@ -98,19 +98,14 @@ class SiteTierInfo(models.Model):
     def get_current_subscription(self):
         """
         Returns ``None`` if there is no active subscription, or a tuple where
-        the first item is the ipn that started the subscription and the second
-        item is either the most recent payment, or ``None`` if there have not
-        been any payments.
+        the first item is the most recent ipn which started or modified the
+        subscription and the second item is either the most recent payment, or
+        ``None`` if there have not been any payments.
 
         """
-        # For reference - the way that we use paypal is that a new
-        # subscription is started before the old subscription is ended. PayPal
-        # will send subscr_cancel followed by subscr_eot for cancelled
-        # subscriptions. Subscr_modify isn't used by us, and subscr_failed
-        # isn't really relevant here.
         signups = self.ipn_set.filter(flag=False,
-                                      txn_type='subscr_signup')
-
+                                      txn_type__in=('subscr_signup',
+                                                    'subscr_modify'))
         try:
             latest_signup = signups.order_by('-created_at')[0]
         except IndexError:
@@ -127,11 +122,12 @@ class SiteTierInfo(models.Model):
         else:
             return (None, None)
 
+        payments = self.ipn_set.filter(flag=False,
+                                       txn_type='subscr_payment',
+                                       subscr_id=latest_signup.subscr_id)
         try:
-            latest_payment = self.ipn_set.filter(flag=False,
-                                            txn_type='subscr_payment',
-                                            subscr_id=latest_signup.subscr_id)
-        except PayPalIPN.DoesNotExist:
+            latest_payment = payments.order_by('-created_at')[0]
+        except IndexError:
             latest_payment = None
 
         return (latest_signup, latest_payment)

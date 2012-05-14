@@ -51,3 +51,8 @@
 #content > .plan.selected > .hdr > h1, #basic_plan.selected > .hdr > h1 { color: rgba(255, 255, 255, 0.8); text-shadow: none; }
 #content > .plan.selected > .hdr > h2, #basic_plan.selected > .hdr > h2 { color: rgba(255, 255, 255, 0.9); text-shadow: none; }
 #content > .plan.selected > .ft > p, #basic_plan.selected > .ft > p { color: rgba(255, 255, 255, 0.9); text-shadow: none; }
+
+body.downgrade_confirm h1, body.downgrade_confirm h2 { float: none; }
+body.downgrade_confirm h1 { font-color: #910000; }
+body.downgrade_confirm h3 { font-size: 20px; font-weight: bold; margin-bottom: 16px; }
+body.downgrade_confirm p { font-size: 16px; margin-bottom: 16px; line-height: 24px; }

@@ -19,12 +19,15 @@ from django.conf.urls.defaults import patterns, include, url
 
 from mirocommunity_saas.admin.forms import (EditSettingsForm, AuthorForm,
                                             AuthorFormSet, VideoFormSet)
-from mirocommunity_saas.admin.views import index, TierView, TierChangeView
+from mirocommunity_saas.admin.views import (index, TierView, TierChangeView,
+                                            DowngradeConfirmationView)
 
 
 urlpatterns = patterns('',
     url(r'^$', index, name='localtv_admin_index'),
     url(r'^upgrade/$', TierView.as_view(), name='localtv_admin_tier'),
+    url(r'^upgrade/confirm_downgrade/$', DowngradeConfirmationView.as_view(),
+        name='localtv_admin_tier_confirm'),
     url(r'^upgrade/complete/$', TierChangeView.as_view(),
         name='localtv_admin_tier_change'),
     url(r'^paypal/', include('paypal.standard.ipn.urls')),
