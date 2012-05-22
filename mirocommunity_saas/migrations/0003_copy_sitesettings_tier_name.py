@@ -8,11 +8,11 @@ import logging
 class Migration(DataMigration):
 
     depends_on = (
-        ("localtv", "0075_renamed_sitesettings_m2m")
+        ("localtv", "0075_renamed_sitesettings_m2m"),
         )
     needed_by = (
         # technically it's needed by 0077, but that name might be changing.
-        ("localtv", "0076_auto__del_field_feed_avoid_frontpage")
+        ("localtv", "0076_auto__del_field_feed_avoid_frontpage"),
         )
     def forwards(self, orm):
         "Write your forwards methods here."
