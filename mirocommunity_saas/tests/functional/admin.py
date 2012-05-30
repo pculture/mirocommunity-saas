@@ -393,3 +393,30 @@ description={description}
         response = self.client.get(url)
         self.assertRedirects(response, index_url)
         self.assertEqual(Theme.objects.get_default(), theme2)
+
+
+class FlatPagesTestCase(BaseTestCase):
+    def test_admin(self):
+        """
+        Tests that the flatpages admin is only accessible if the tier allows
+        it.
+
+        """
+        url = reverse('localtv_admin_flatpages')
+        tier = self.create_tier(custom_themes=False)
+        self.create_tier_info(tier)
+        self.create_user(username='admin', password='admin',
+                         is_superuser=True)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+        self.client.login(username='admin', password='admin')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
+        self.client.logout()
+        tier.custom_themes = True
+        tier.save()
+        self.assertRequiresAuthentication(url)
+        self.client.login(username='admin', password='admin')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)

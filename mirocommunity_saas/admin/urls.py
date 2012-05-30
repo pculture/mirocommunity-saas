@@ -77,3 +77,8 @@ urlpatterns += patterns('',
     url(r'themes/set_default/(\d+)$', require_site_admin(set_default),
         name='uploadtemplate-set-default'),
 )
+
+# Flatpages overrides
+urlpatterns += patterns('mirocommunity_saas.admin.flatpages_views',
+    url(r'flatpages/$', 'flatpages_admin', name='localtv_admin_flatpages'),
+)
