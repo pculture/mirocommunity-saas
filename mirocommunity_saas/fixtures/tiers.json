@@ -1,0 +1,114 @@
+[
+    {
+        "pk": 1,
+        "model": "mirocommunity_saas.tier",
+        "fields": {
+            "custom_css": false,
+            "name": "Basic",
+            "video_limit": 500,
+            "price": 0,
+            "ads_allowed": false,
+            "admin_limit": 0,
+            "custom_themes": false,
+            "newsletter": false,
+            "slug": "basic",
+            "custom_domain": false
+        }
+    },
+    {
+        "pk": 2,
+        "model": "mirocommunity_saas.tier",
+        "fields": {
+            "custom_css": true,
+            "name": "Plus",
+            "video_limit": 1000,
+            "price": 79,
+            "ads_allowed": false,
+            "admin_limit": 4,
+            "custom_themes": false,
+            "newsletter": false,
+            "slug": "plus",
+            "custom_domain": true
+        }
+    },
+    {
+        "pk": 3,
+        "model": "mirocommunity_saas.tier",
+        "fields": {
+            "custom_css": true,
+            "name": "Premium",
+            "video_limit": 5000,
+            "price": 149,
+            "ads_allowed": true,
+            "admin_limit": null,
+            "custom_themes": false,
+            "newsletter": false,
+            "slug": "premium",
+            "custom_domain": true
+        }
+    },
+    {
+        "pk": 4,
+        "model": "mirocommunity_saas.tier",
+        "fields": {
+            "custom_css": true,
+            "name": "Max",
+            "video_limit": 25000,
+            "price": 149,
+            "ads_allowed": true,
+            "admin_limit": null,
+            "custom_themes": true,
+            "newsletter": false,
+            "slug": "max",
+            "custom_domain": true
+        }
+    },
+    {
+        "pk": 5,
+        "model": "mirocommunity_saas.tier",
+        "fields": {
+            "custom_css": true,
+            "name": "Plus",
+            "video_limit": 1000,
+            "price": 15,
+            "ads_allowed": false,
+            "admin_limit": 4,
+            "custom_themes": false,
+            "newsletter": false,
+            "slug": "plus_early",
+            "custom_domain": true
+        }
+    },
+    {
+        "pk": 6,
+        "model": "mirocommunity_saas.tier",
+        "fields": {
+            "custom_css": true,
+            "name": "Premium",
+            "video_limit": 5000,
+            "price": 35,
+            "ads_allowed": true,
+            "admin_limit": null,
+            "custom_themes": false,
+            "newsletter": false,
+            "slug": "premium_early",
+            "custom_domain": true
+        }
+    },
+    {
+        "pk": 7,
+        "model": "mirocommunity_saas.tier",
+        "fields": {
+            "custom_css": true,
+            "name": "Max",
+            "video_limit": 25000,
+            "price": 75,
+            "ads_allowed": true,
+            "admin_limit": null,
+            "custom_themes": true,
+            "newsletter": false,
+            "slug": "max_early",
+            "custom_domain": true
+        }
+    }
+]
