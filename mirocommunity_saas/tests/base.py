@@ -23,6 +23,10 @@ from mirocommunity_saas.models import Tier, SiteTierInfo
 
 
 class BaseTestCase(MCBaseTestCase):
+    def setUp(self):
+        super(BaseTestCase, self).setUp()
+        SiteTierInfo.objects.clear_cache()
+
     def create_tier(self, name='Tier', slug='tier', **kwargs):
         return Tier.objects.create(name=name, slug=slug, **kwargs)
 

@@ -19,6 +19,7 @@ import datetime
 
 from django.contrib.sites.models import Site
 from django.db import models
+from localtv.models import SiteRelatedManager
 from paypal.standard.ipn.models import PayPalIPN
 
 
@@ -58,6 +59,18 @@ class Tier(models.Model):
         return u"{name}: {price}".format(name=self.name, price=self.price)
 
 
+class SiteTierInfoManager(SiteRelatedManager):
+    def _new_entry(self, site, using):
+        # For now, we assume that the default tier should be a free tier. We
+        # also assume that there is only one free tier.
+        try:
+            tier = Tier.objects.get(price=0)
+        except Tier.DoesNotExist:
+            raise self.model.DoesNotExist
+        return self.db_manager(using).create(site=site, tier=tier,
+                                         tier_changed=datetime.datetime.now())
+
+
 class SiteTierInfo(models.Model):
     site = models.OneToOneField(Site)
 
@@ -93,6 +106,8 @@ class SiteTierInfo(models.Model):
     #: The video count for the site the last time that the site's owner
     #: received a video limit warning.
     video_count_when_warned = models.PositiveIntegerField(blank=True, null=True)
+
+    objects = SiteTierInfoManager()
 
     def get_current_subscription(self):
         """

@@ -35,13 +35,13 @@ from paypal.standard.conf import (POSTBACK_ENDPOINT,
                                   RECEIVER_EMAIL)
 from paypal.standard.forms import PayPalPaymentsForm
 
-from mirocommunity_saas.models import Tier, SiteTierInfo
+from mirocommunity_saas.models import SiteTierInfo
 
 
 class EditSettingsForm(_EditSettingsForm):
     def __init__(self, *args, **kwargs):
         _EditSettingsForm.__init__(self, *args, **kwargs)
-        self.tier = Tier.objects.get(sitetierinfo__site=settings.SITE_ID)
+        self.tier = SiteTierInfo.objects.get_current().tier
         if not self.tier.custom_css:
             # Uh-oh: custom CSS is not permitted!
             #
@@ -83,7 +83,7 @@ class AuthorForm(_AuthorForm):
         _AuthorForm.__init__(self, *args, **kwargs)
         ## Add a note to the 'role' help text indicating how many admins
         ## are permitted with this kind of account.
-        self.tier = Tier.objects.get(sitetierinfo__site=settings.SITE_ID)
+        self.tier = SiteTierInfo.objects.get_current().tier
         if self.tier.admin_limit is not None:
             # For backwards-compatibility, pretend the site owner (a
             # superuser) counts toward the limit.
@@ -130,9 +130,8 @@ AuthorFormSet = modelformset_factory(User,
                                      extra=0)
 
 class BulkEditVideoFormSet(_BulkEditVideoFormSet):
-
     def clean(self):
-        tier = Tier.objects.get(sitetierinfo__site=settings.SITE_ID)
+        tier = SiteTierInfo.objects.get_current().tier
         self.approval_count = 0
         _BulkEditVideoFormSet.clean(self)
         if tier.video_limit is not None:
@@ -193,7 +192,7 @@ class TierChangeForm(PayPalPaymentsForm):
 
     def __init__(self, tier, return_params, confirm_params=None):
         self.tier = tier
-        self.tier_info = SiteTierInfo.objects.get(site=settings.SITE_ID)
+        self.tier_info = SiteTierInfo.objects.get_current()
         self.confirm_params = confirm_params or {}
         self.return_params = return_params
         if self.confirm_params and self.is_downgrade():

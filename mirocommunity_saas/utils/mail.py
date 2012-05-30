@@ -63,8 +63,7 @@ def send_mail(subject_template, body_template, users, from_email=None,
     HTML version of the email.
 
     """
-    tier_info = SiteTierInfo.objects.select_related('tier', 'site'
-                                   ).get(site=settings.SITE_ID)
+    tier_info = SiteTierInfo.objects.get_current()
     c = {
         'tier_info': tier_info,
         'site': tier_info.site,
@@ -86,7 +85,7 @@ def send_mail(subject_template, body_template, users, from_email=None,
 
 
 def send_welcome_email():
-    tier_info = SiteTierInfo.objects.get(site=settings.SITE_ID)
+    tier_info = SiteTierInfo.objects.get_current()
     if tier_info.welcome_email_sent:
         return
     send_mail('mirocommunity_saas/mail/welcome/subject.txt',
@@ -98,8 +97,7 @@ def send_welcome_email():
 
 
 def send_video_limit_warning():
-    tier_info = SiteTierInfo.objects.get(site=settings.SITE_ID
-                                   ).select_related('tier')
+    tier_info = SiteTierInfo.objects.get_current()
 
     # Don't send an email if there is no limit.
     if tier_info.tier.video_limit is None:
@@ -140,7 +138,7 @@ def send_video_limit_warning():
 
 
 def send_free_trial_ending():
-    tier_info = SiteTierInfo.objects.get(site=settings.SITE_ID)
+    tier_info = SiteTierInfo.objects.get_current()
     # Only one free trial, so this can only be sent once.
     if tier_info.free_trial_ending_sent:
         return

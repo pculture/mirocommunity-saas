@@ -18,7 +18,6 @@
 import datetime
 import math
 
-from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect, Http404
 from django.views.generic import TemplateView, View
@@ -37,7 +36,7 @@ from mirocommunity_saas.utils.tiers import (check_tier_change_token,
 class TierIndexView(IndexView):
     def get_context_data(self, **kwargs):
         context = super(TierIndexView, self).get_context_data(**kwargs)
-        tier = Tier.objects.get(sitetierinfo__site=settings.SITE_ID)
+        tier = SiteTierInfo.objects.get_current().tier
         context.update({
             'percent_videos_used': math.floor((100.0 * context['total_count'])
                                               / tier.video_limit),
@@ -89,7 +88,7 @@ class TierView(BaseTierView):
         return context
 
     def get_forms(self):
-        self.tier_info = SiteTierInfo.objects.get(site=settings.SITE_ID)
+        self.tier_info = SiteTierInfo.objects.get_current()
         self.tiers = self.tier_info.available_tiers.order_by('price')
         forms = dict((tier, self.get_tier_form(tier))
                      for tier in self.tiers)
@@ -106,8 +105,7 @@ class DowngradeConfirmationView(BaseTierView):
 
     def get_context_data(self, **kwargs):
         context = BaseTierView.get_context_data(self)
-        tier_info = SiteTierInfo.objects.select_related('tier'
-                                       ).get(site=settings.SITE_ID)
+        tier_info = SiteTierInfo.objects.get_current()
         slug = self.request.GET.get(self.SLUG_PARAM, '')
         try:
             tier = tier_info.available_tiers.get(slug=slug)
@@ -139,7 +137,7 @@ class TierChangeView(View):
 
     def dispatch(self, request, *args, **kwargs):
         tier_slug = request.GET.get(TierView.SLUG_PARAM, '')
-        self.tier_info = SiteTierInfo.objects.get(site=settings.SITE_ID)
+        self.tier_info = SiteTierInfo.objects.get_current()
 
         try:
             self.tier = self.tier_info.available_tiers.get(slug=tier_slug)

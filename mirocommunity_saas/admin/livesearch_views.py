@@ -22,15 +22,15 @@ from localtv.admin.livesearch.views import LiveSearchApproveVideoView
 from localtv.decorators import require_site_admin, referrer_redirect
 from localtv.models import Video
 
-from mirocommunity_saas.models import Tier
+from mirocommunity_saas.models import SiteTierInfo
 
 class TierLiveSearchApproveVideoView(LiveSearchApproveVideoView):
 
     def get(self, request, **kwargs):
         if not request.GET.get('queue'):
             try:
-                tier = Tier.objects.get(sitetierinfo__site=settings.SITE_ID)
-            except Tier.DoesNotExist:
+                tier = SiteTierInfo.objects.get_current().tier
+            except SiteTierInfo.DoesNotExist:
                 raise Http404
             if tier.video_limit is not None:
                 video_count = Video.objects.filter(status=Video.ACTIVE,

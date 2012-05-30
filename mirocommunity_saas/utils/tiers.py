@@ -23,7 +23,7 @@ from localtv.models import SiteSettings, Video
 from localtv.signals import pre_mark_as_active, submit_finished
 from uploadtemplate.models import Theme
 
-from mirocommunity_saas.models import Tier, SiteTierInfo
+from mirocommunity_saas.models import SiteTierInfo
 
 
 def admins_to_demote(tier, site=None):
@@ -107,7 +107,7 @@ def enforce_tier(tier, site=None):
 
 def make_tier_change_token(new_tier):
     site = Site.objects.get_current()
-    tier_info = SiteTierInfo.objects.get(site=site)
+    tier_info = SiteTierInfo.objects.get_current()
     # We hash on the site domain to make sure we stay on the same site, and on
     # the tier_name/tier_changed so that the link will stop working once it's
     # used.
@@ -134,8 +134,7 @@ def limit_import_approvals(sender, active_set, **kwargs):
     # Perhaps this should be done by just running tiers enforcement after the
     # import?
     using = sender._state.db
-    tier = Tier.objects.db_manager(using).get(
-                                          sitetierinfo__site=settings.SITE_ID)
+    tier = SiteTierInfo.objects.db_manager(using).get_current().tier
     videos = Video.objects.using(using).filter(status=Video.ACTIVE)
     remaining_count = tier.video_limit - videos.count()
     if remaining_count > active_set.count():
@@ -162,8 +161,7 @@ def check_submission_approval(sender, **kwargs):
         return
 
     using = sender._state.db
-    tier = Tier.objects.db_manager(using).get(
-                                          sitetierinfo__site=settings.SITE_ID)
+    tier = SiteTierInfo.objects.db_manager(using).get_current().tier
     videos = Video.objects.using(using).filter(status=Video.ACTIVE)
     remaining_count = tier.video_limit - videos.count()
     if remaining_count < 0:
