@@ -86,7 +86,7 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
       down your site.</p>
   {% endif %}
 
-  {% if tier_info.tier.custom_domain and not tier.custom_domain and not tier_info.site.domain|endswith:".mirocommunity.org" %}
+  {% if tier_info.tier.custom_domain and not tier.custom_domain and tier_info.site.domain|slice:"-18" != ".mirocommunity.org" %}
     <h3>Custom domain</h3>
     <p>Custom domains are not offered with the {{ tier.name }} account level. If you downgrade, we will revert your site to a domain within
       mirocommunity.org.</p>
