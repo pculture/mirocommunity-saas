@@ -11,7 +11,7 @@ You currently have a {{ tier.name|capfirst }} account for http://{{ site.domain 
 * Custom css{% endif %}
 * **{{ tier.video_limit }}** video limit
 * **{% if tier.admin_limit == 0 or tier.admin_limit %}{{ tier.admin_limit|add:1 }}{% else %}Unlimited{% endif %}** administrator accounts{% if tier.ads_allowed %}
-* You can run advertising{% endif %}{% if tier.custom_templates %}
+* You can run advertising{% endif %}{% if tier.custom_themes %}
 * Fully custom templating{% endif %}
 
 {% if tier_info.in_free_trial %}Your 30-day free trial lasts until midnight on {{ tier_info.get_free_trial_end|date:"F j, Y" }}. If

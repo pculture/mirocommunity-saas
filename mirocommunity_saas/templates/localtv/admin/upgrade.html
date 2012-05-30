@@ -55,11 +55,11 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
             <li>Custom css</li>
           {% endif %}
           <li><strong>{% if tier.video_limit %}{{ tier.video_limit }}{% else %}Unlimited{% endif %}</strong> videos</li>
-          <li><strong>{% if tier.admin_limit == 0 or tier.admin_limit %}{{ tier.admin_limit|add:1 }}{% else %}Unlimited{% endif %}</strong> administrator accounts</li>
+          <li><strong>{% if tier.admin_limit == 0 or tier.admin_limit %}{{ tier.admin_limit|add:1 }}{% else %}Unlimited{% endif %}</strong> administrator account{% if tier.admin_limit != 0 %}s{% endif %}</li>
           {% if tier.ads_allowed %}
             <li>You can run advertising</li>
           {% endif %}
-          {% if tier.custom_templates %}
+          {% if tier.custom_themes %}
             <li>Fully custom templating</li>
           {% endif %}
         </ul>

@@ -78,7 +78,7 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
       applied.</p>
   {% endif %}
 
-  {% if tier_info.tier.advertising and not tier.advertising %}
+  {% if tier_info.tier.ads_allowed and not tier.ads_allowed %}
     <h3>Advertising</h3>
     <p>Advertising is only allowed on sites with a Premium or Max
       account level. If you downgrade to {{ tier.name }} and continue to run
@@ -92,7 +92,7 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
       mirocommunity.org.</p>
   {% endif %}
 
-  {% if tier_info.tier.custom_theme and not tier.custom_theme %}
+  {% if tier_info.tier.custom_themes and not tier.custom_themes %}
     <h3>Custom Themes</h3>
     <p>You will no longer be able to add custom themes. Custom themes that have
   previously been uploaded will be saved, but cannot be activated.</p>
