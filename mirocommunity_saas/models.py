@@ -25,9 +25,8 @@ from paypal.standard.ipn.models import PayPalIPN
 class Tier(models.Model):
     #: Human-readable name.
     name = models.CharField(max_length=30)
-    #: Slug. Not enforced as unique, but should be unique on a per-site basis
-    #: as unique among the available tiers.
-    slug = models.SlugField(max_length=30)
+    #: A unique slug.
+    slug = models.SlugField(max_length=30, unique=True)
 
     #: Price (USD) for the tier.
     price = models.PositiveIntegerField(default=0)
