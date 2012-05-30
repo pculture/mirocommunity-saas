@@ -16,13 +16,17 @@
 # along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 
 from django.conf.urls.defaults import patterns, include, url
+from localtv.decorators import require_site_admin
 
 from mirocommunity_saas.admin.forms import (EditSettingsForm, AuthorForm,
                                             AuthorFormSet, VideoFormSet)
+from mirocommunity_saas.admin.upload_views import (UploadtemplateAdmin,
+                                                   set_default)
 from mirocommunity_saas.admin.views import (index, TierView, TierChangeView,
                                             DowngradeConfirmationView)
 
 
+# Tier urls
 urlpatterns = patterns('',
     url(r'^$', index, name='localtv_admin_index'),
     url(r'^upgrade/$', TierView.as_view(), name='localtv_admin_tier'),
@@ -33,6 +37,7 @@ urlpatterns = patterns('',
     url(r'^paypal/', include('paypal.standard.ipn.urls')),
 )
 
+# Moderation overrides
 urlpatterns += patterns('mirocommunity_saas.admin.approve_reject_views',
     url(r'^actions/approve_video/$', 'approve_video',
         name='localtv_admin_approve_video'),
@@ -42,15 +47,19 @@ urlpatterns += patterns('mirocommunity_saas.admin.approve_reject_views',
         name='localtv_admin_approve_all'),
 )
 
+# Newsletter overrides
 urlpatterns += patterns('mirocommunity_saas.admin.design_views',
     url(r'^settings/newsletter/$', 'newsletter_settings',
         name='localtv_admin_newsletter_settings')
 )
 
+# Live search overrides
 urlpatterns += patterns('mirocommunity_saas.admin.livesearch_views',
     url(r'^add/approve/$', 'approve',
         name='localtv_admin_search_video_approve')
 )
+
+# Overrides for settings, users, and videos.
 urlpatterns += patterns('localtv.admin',
     url(r'^settings/$', 'design_views.edit_settings',
         {'form_class': EditSettingsForm}, 'localtv_admin_settings'),
@@ -59,4 +68,12 @@ urlpatterns += patterns('localtv.admin',
         'localtv_admin_users'),
     url(r'^bulk_edit/$', 'bulk_edit_views.bulk_edit',
         {'formset_class': VideoFormSet}, 'localtv_admin_bulk_edit')
+)
+
+# Theming overrides
+urlpatterns += patterns('',
+    url(r'themes/$', require_site_admin(UploadtemplateAdmin.as_view()),
+        name='uploadtemplate-index'),
+    url(r'themes/set_default/(\d+)$', require_site_admin(set_default),
+        name='uploadtemplate-set-default'),
 )

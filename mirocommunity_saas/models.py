@@ -109,6 +109,9 @@ class SiteTierInfo(models.Model):
 
     objects = SiteTierInfoManager()
 
+    def __unicode__(self):
+        return "Tier info for {0}".format(self.site.domain)
+
     def get_current_subscription(self):
         """
         Returns ``None`` if there is no active subscription, or a tuple where

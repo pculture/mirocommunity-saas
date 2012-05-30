@@ -15,9 +15,15 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 
+from StringIO import StringIO
+import zipfile
+
+from django.conf import settings
+from django.core.urlresolvers import reverse
 from django.http import Http404
 from localtv.models import NewsletterSettings, SiteSettings, Video
 import mock
+from uploadtemplate.models import Theme
 
 from mirocommunity_saas.admin.approve_reject_views import (approve_video,
                                                            feature_video,
@@ -290,3 +296,100 @@ class LiveSearchTestCase(BaseTestCase):
         self.assertEqual(response.status_code, 402)
         video = Video.objects.get(pk=video.pk)
         self.assertEqual(video.status, Video.UNAPPROVED)
+
+
+class ThemeTestCase(BaseTestCase):
+    def create_theme_zip(self, name="Test", description="Test description."):
+        """
+        Creates a zipped theme with the given name and description.
+        """
+        theme = StringIO()
+        theme_zip = zipfile.ZipFile(theme, 'w')
+        theme_zip.writestr('meta.ini', """
+[Theme]
+name={name}
+description={description}
+""".format(name=name, description=description))
+        theme_zip.close()
+        theme.name = 'theme.zip'
+        return theme
+
+    def create_theme(self, name='Test', site_id=settings.SITE_ID,
+                     description='Test description', **kwargs):
+        return Theme.objects.create(name=name, site_id=site_id,
+                                    description=description, **kwargs)
+
+    def test_upload(self):
+        """
+        If themes are not allowed, uploading a theme should give a 403 error;
+        otherwise, it should go through.
+
+        """
+        url = reverse('uploadtemplate-index')
+        self.assertRequiresAuthentication(url)
+        self.create_user(username='admin', password='admin',
+                         is_superuser=True)
+        self.client.login(username='admin', password='admin')
+
+        theme = self.create_theme_zip()
+
+        self.assertEqual(Theme.objects.count(), 0)
+
+        tier = self.create_tier(custom_themes=False)
+        self.create_tier_info(tier)
+        theme.seek(0)
+        response = self.client.post(url, {'theme': theme})
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(Theme.objects.count(), 0)
+
+        tier.custom_themes = True
+        tier.save()
+        theme.seek(0)
+        response = self.client.post(url, {'theme': theme})
+        self.assertRedirects(response, url)
+        self.assertEqual(Theme.objects.count(), 1)
+
+    def test_set_default(self):
+        """
+        If custom themes are not allowed, only "bundled" themes can be
+        selected as default.
+
+        """
+        index_url = reverse('uploadtemplate-index')
+        theme1 = self.create_theme(name='Theme1', bundled=False)
+        theme2 = self.create_theme(name='Theme2', bundled=True)
+
+        tier = self.create_tier(custom_themes=False)
+        self.create_tier_info(tier)
+
+        # If custom themes are disabled, only the bundled theme can be set as
+        # default.
+        self.assertRaises(Theme.DoesNotExist, Theme.objects.get_default)
+        url = reverse('uploadtemplate-set-default', args=(theme1.pk,))
+        self.assertRequiresAuthentication(url)
+        self.create_user(username='admin', password='admin',
+                         is_superuser=True)
+        self.client.login(username='admin', password='admin')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 403)
+        self.assertRaises(Theme.DoesNotExist, Theme.objects.get_default)
+
+        url = reverse('uploadtemplate-set-default', args=(theme2.pk,))
+        response = self.client.get(url)
+        self.assertRedirects(response, index_url)
+        self.assertEqual(Theme.objects.get_default(), theme2)
+
+        # Otherwise, either theme can be set as default.
+        tier.custom_themes = True
+        tier.save()
+        Theme.objects.set_default(None)
+        self.assertRaises(Theme.DoesNotExist, Theme.objects.get_default)
+        url = reverse('uploadtemplate-set-default', args=(theme1.pk,))
+        response = self.client.get(url)
+        self.assertRedirects(response, index_url)
+        self.assertEqual(Theme.objects.get_default(), theme1)
+
+        url = reverse('uploadtemplate-set-default', args=(theme2.pk,))
+        response = self.client.get(url)
+        self.assertRedirects(response, index_url)
+        self.assertEqual(Theme.objects.get_default(), theme2)

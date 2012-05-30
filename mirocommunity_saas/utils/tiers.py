@@ -102,7 +102,7 @@ def enforce_tier(tier, site=None):
         pass
 
     if not tier.custom_themes:
-        Theme.objects.filter(default=True).update(default=False)
+        Theme.objects.set_default(None)
 
 
 def make_tier_change_token(new_tier):
