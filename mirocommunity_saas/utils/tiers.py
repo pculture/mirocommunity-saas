@@ -126,7 +126,7 @@ def limit_import_approvals(sender, active_set, **kwargs):
     """
     Called towards the end of an import to figure out which videos (if any)
     should actually be approved. Returns either a Q object or a dictionary of
-    filters.
+    filters. ``sender`` is a ``SourceImport`` instance.
 
     """
     # We use the sender's db; this is part of the HACK that is the settings
@@ -135,9 +135,10 @@ def limit_import_approvals(sender, active_set, **kwargs):
     # import?
     using = sender._state.db
     tier = SiteTierInfo.objects.db_manager(using).get_current().tier
-    videos = Video.objects.using(using).filter(status=Video.ACTIVE)
+    videos = Video.objects.using(using).filter(status=Video.ACTIVE,
+                                               site=settings.SITE_ID)
     remaining_count = tier.video_limit - videos.count()
-    if remaining_count > active_set.count():
+    if remaining_count >= active_set.count():
         # don't need to filter.
         return
     elif remaining_count > 0:
@@ -162,12 +163,9 @@ def check_submission_approval(sender, **kwargs):
 
     using = sender._state.db
     tier = SiteTierInfo.objects.db_manager(using).get_current().tier
-    videos = Video.objects.using(using).filter(status=Video.ACTIVE)
+    videos = Video.objects.using(using).filter(status=Video.ACTIVE,
+                                               site=settings.SITE_ID)
     remaining_count = tier.video_limit - videos.count()
     if remaining_count < 0:
         sender.status = Video.UNAPPROVED
         sender.save()
-
-### register pre-save handler for Tiers and payment due dates
-#models.signals.pre_save.connect(tiers.pre_save_adjust_resource_usage,
-#                                sender=TierInfo)

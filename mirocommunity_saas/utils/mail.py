@@ -121,7 +121,7 @@ def send_welcome_email():
     send_mail('mirocommunity_saas/mail/welcome/subject.txt',
               'mirocommunity_saas/mail/welcome/body.md',
               # site owners are currently all superusers.
-              User.objects.filter(is_superuser=True))
+              User.objects.filter(is_superuser=True, is_active=True))
     tier_info.welcome_email_sent = datetime.datetime.now()
     tier_info.save()
 
@@ -160,7 +160,7 @@ def send_video_limit_warning():
     send_mail('mirocommunity_saas/mail/video_limit/subject.txt',
               'mirocommunity_saas/mail/video_limit/body.md',
               # site owners are currently all superusers.
-              User.objects.filter(is_superuser=True),
+              User.objects.filter(is_superuser=True, is_active=True),
               extra_context={'ratio': ratio})
     tier_info.video_limit_warning_sent = datetime.datetime.now()
     tier_info.video_count_when_warned = video_count
@@ -187,6 +187,6 @@ def send_free_trial_ending():
     send_mail('mirocommunity_saas/mail/free_trial/subject.txt',
               'mirocommunity_saas/mail/free_trial/body.md',
               # site owners are currently all superusers.
-              User.objects.filter(is_superuser=True))
+              User.objects.filter(is_superuser=True, is_active=True))
     tier_info.free_trial_ending_sent = datetime.datetime.now()
     tier_info.save()

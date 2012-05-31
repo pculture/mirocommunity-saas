@@ -21,6 +21,9 @@ This file contains tests of tier-based permissions.
 
 """
 
+import datetime
+
+from django.conf import settings
 from django.contrib.sites.models import Site
 from django.core import mail
 from django.core.exceptions import ValidationError
@@ -36,15 +39,17 @@ from mirocommunity_saas.admin.forms import (EditSettingsForm, AuthorForm,
 from mirocommunity_saas.tests.base import BaseTestCase
 from mirocommunity_saas.utils.tiers import (admins_to_demote,
                                             videos_to_deactivate,
-                                            enforce_tier)
+                                            enforce_tier,
+                                            limit_import_approvals,
+                                            check_submission_approval)
 from mirocommunity_saas.views import newsletter
 
 
 class NewsletterTestCase(BaseTestCase):
     def setUp(self):
         """Make sure that a newsletter exists."""
-        settings = SiteSettings.objects.get_current()
-        NewsletterSettings.objects.create(site_settings=settings,
+        site_settings = SiteSettings.objects.get_current()
+        NewsletterSettings.objects.create(site_settings=site_settings,
                                           status=NewsletterSettings.FEATURED)
         BaseTestCase.setUp(self)
 
@@ -276,7 +281,7 @@ class EnforcementTestCase(BaseTestCase):
         # Case 2: Nothing is allowed; everything should change.
         tier = self.create_tier(video_limit=1, admin_limit=1,
                                 custom_domain=False, custom_themes=False)
-        tier_info = self.create_tier_info(tier, site_name='test')
+        self.create_tier_info(tier, site_name='test')
         enforce_tier(tier)
         self.assertEqual(set(site_settings.admins.all()), set(admins[:1]))
         self.assertEqual(set(Video.objects.filter(status=Video.ACTIVE)),
@@ -285,3 +290,69 @@ class EnforcementTestCase(BaseTestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(Site.objects.get_current().domain,
                          'test.mirocommunity.org')
+
+
+class FeedImportTestCase(BaseTestCase):
+    def test_limit_import_approvals(self):
+        """
+        limit_import_approvals returns a dictionary of filters if not all
+        of the videos given can be used.
+
+        """
+        tier = self.create_tier(video_limit=20)
+        self.create_tier_info(tier)
+        start = datetime.datetime.now() - datetime.timedelta(10)
+        for i in xrange(10):
+            video = self.create_video(name='video{0}'.format(i),
+                                      update_index=False,
+                                      status=Video.UNAPPROVED,
+                                      site_id=settings.SITE_ID)
+            video.when_submitted = start + datetime.timedelta(i)
+            video.save()
+        for i in xrange(10):
+            video = self.create_video(name='video{0}-1'.format(i),
+                                      update_index=False,
+                                      site_id=settings.SITE_ID + 1)
+            video.when_submitted = start + datetime.timedelta(i)
+            video.save()
+
+        active_set = Video.objects.filter(site=settings.SITE_ID
+                                 ).order_by('when_submitted')
+        # The sender is technically usually a SourceImport instance, but it's
+        # only used for its database.
+        response = limit_import_approvals(active_set[0], active_set)
+        self.assertTrue(response is None)
+
+        tier.video_limit = 10
+        tier.save()
+        response = limit_import_approvals(active_set[0], active_set)
+        self.assertTrue(response is None)
+
+        tier.video_limit = 5
+        tier.save()
+        response = limit_import_approvals(active_set[0], active_set)
+        self.assertEqual(response,
+                         {'when_submitted__lt': active_set[5].when_submitted})
+
+        tier.video_limit = 0
+        tier.save()
+        response = limit_import_approvals(active_set[0], active_set)
+        self.assertEqual(response, {'status': -1})
+
+
+class SubmissionTestCase(BaseTestCase):
+    def test_submission_approval(self):
+        """
+        Marks a video as inactive if no more videos can be approved.
+
+        """
+        tier = self.create_tier(video_limit=1)
+        self.create_tier_info(tier)
+        video = self.create_video(name='video')
+        check_submission_approval(video)
+        self.assertEqual(video.status, Video.ACTIVE)
+
+        tier.video_limit = 0
+        tier.save()
+        check_submission_approval(video)
+        self.assertEqual(video.status, Video.UNAPPROVED)
