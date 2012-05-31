@@ -17,7 +17,9 @@
 
 import datetime
 
+from django.conf import settings
 from localtv.tests.base import BaseTestCase as MCBaseTestCase
+from uploadtemplate.models import Theme
 
 from mirocommunity_saas.models import Tier, SiteTierInfo
 
@@ -61,3 +63,8 @@ class BaseTestCase(MCBaseTestCase):
             tier_info.ipn_set.add(ipn)
 
         return tier_info
+
+    def create_theme(self, name='Test', site_id=settings.SITE_ID,
+                     description='Test description', **kwargs):
+        return Theme.objects.create(name=name, site_id=site_id,
+                                    description=description, **kwargs)

@@ -21,15 +21,22 @@ This file contains tests of tier-based permissions.
 
 """
 
+from django.contrib.sites.models import Site
+from django.core import mail
 from django.core.exceptions import ValidationError
 from django.forms.formsets import TOTAL_FORM_COUNT, INITIAL_FORM_COUNT
 from django.forms.models import model_to_dict
 from django.http import Http404
+from django.test.utils import override_settings
 from localtv.models import NewsletterSettings, SiteSettings, Video
+from uploadtemplate.models import Theme
 
 from mirocommunity_saas.admin.forms import (EditSettingsForm, AuthorForm,
                                             VideoFormSet)
 from mirocommunity_saas.tests.base import BaseTestCase
+from mirocommunity_saas.utils.tiers import (admins_to_demote,
+                                            videos_to_deactivate,
+                                            enforce_tier)
 from mirocommunity_saas.views import newsletter
 
 
@@ -192,3 +199,89 @@ class FormTestCase(BaseTestCase):
             self.assertFalse(formset.is_valid())
 
         self._enable_index_updates()
+
+
+class EnforcementTestCase(BaseTestCase):
+    """Tests that enforcing a tier DTRT."""
+    def test_admins_to_demote(self):
+        tier1 = self.create_tier(slug='tier1', admin_limit=None)
+        tier2 = self.create_tier(slug='tier2', admin_limit=100)
+        tier3 = self.create_tier(slug='tier3', admin_limit=1)
+        admin1 = self.create_user(username='admin1', password='admin1')
+        admin2 = self.create_user(username='admin2', password='admin2')
+        site_settings = SiteSettings.objects.get_current()
+        site_settings.admins.add(admin1)
+        site_settings.admins.add(admin2)
+
+        self.assertEqual(admins_to_demote(tier1), [])
+        self.assertEqual(admins_to_demote(tier2), [])
+        self.assertEqual(admins_to_demote(tier3), [admin2])
+
+    def test_videos_to_deactivate(self):
+        tier1 = self.create_tier(slug='tier1', video_limit=None)
+        tier2 = self.create_tier(slug='tier2', video_limit=100)
+        tier3 = self.create_tier(slug='tier3', video_limit=1)
+        video1 = self.create_video(name='video1', update_index=False)
+        video2 = self.create_video(name='video2', update_index=False)
+
+        self.assertEqual(videos_to_deactivate(tier1), [])
+        self.assertEqual(videos_to_deactivate(tier2), [])
+        self.assertEqual(videos_to_deactivate(tier3), [video1])
+
+    @override_settings(ADMINS=(('Admin1', 'admin@localhost')))
+    def test_enforce_tier(self):
+        """
+        Tests that enforcing a tier demotes extra admins, deactivates extra
+        videos, deactivates custom themes, and emails support to deactivate
+        custom domains.
+
+        """
+        site_settings = SiteSettings.objects.get_current()
+        admins = []
+        for i in xrange(2):
+            admin = self.create_user(username='admin{0}'.format(i))
+            site_settings.admins.add(admin)
+            admins.append(admin)
+
+        videos = []
+        for i in xrange(2):
+            videos.append(self.create_video(name='video{0}'.format(i),
+                                            update_index=False))
+
+        site = Site.objects.get_current()
+        site.domain = 'custom.nu'
+        site.save()
+
+        theme = self.create_theme(default=True)
+
+        # Case 1: Everything is allowed; nothing should change.
+        self.assertEqual(set(site_settings.admins.all()), set(admins))
+        self.assertEqual(set(Video.objects.filter(status=Video.ACTIVE)),
+                         set(videos))
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual(Theme.objects.get_default(), theme)
+        self.assertEqual(Site.objects.get_current().domain, 'custom.nu')
+        tier = self.create_tier(video_limit=None, admin_limit=None,
+                                custom_domain=True, custom_themes=True)
+        tier_info = self.create_tier_info(tier, site_name='test')
+        enforce_tier(tier)
+        self.assertEqual(set(site_settings.admins.all()), set(admins))
+        self.assertEqual(set(Video.objects.filter(status=Video.ACTIVE)),
+                         set(videos))
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual(Theme.objects.get_default(), theme)
+        self.assertEqual(Site.objects.get_current().domain, 'custom.nu')
+        tier.delete()
+
+        # Case 2: Nothing is allowed; everything should change.
+        tier = self.create_tier(video_limit=1, admin_limit=1,
+                                custom_domain=False, custom_themes=False)
+        tier_info = self.create_tier_info(tier, site_name='test')
+        enforce_tier(tier)
+        self.assertEqual(set(site_settings.admins.all()), set(admins[:1]))
+        self.assertEqual(set(Video.objects.filter(status=Video.ACTIVE)),
+                         set(videos[1:]))
+        self.assertRaises(Theme.DoesNotExist, Theme.objects.get_default)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(Site.objects.get_current().domain,
+                         'test.mirocommunity.org')

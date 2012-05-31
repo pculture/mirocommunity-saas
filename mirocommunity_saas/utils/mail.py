@@ -22,7 +22,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.mail import EmailMultiAlternatives
 from django.template.defaultfilters import striptags
-from django.template.loader import render_to_string
+from django.template import Context, loader
 from localtv.models import Video
 
 from mirocommunity_saas.models import SiteTierInfo
@@ -41,47 +41,77 @@ VIDEO_LIMIT_MIN_CHANGE_RATIO = .5
 FREE_TRIAL_WARNING_DAYS = 5
 
 
-def send_mail(subject_template, body_template, users, from_email=None,
-              extra_context=None, fail_silently=False):
+def render_to_email(subject_template, body_template, context, to, from_email):
     """
-    Send mail to the given recipients by rendering the given templates.
+    Renders the given templates as an EmailMessage, with plaintext and HTML
+    alternatives.
+
+    """
+    subject = striptags(subject_template.render(context))
+    body = striptags(body_template.render(context))
+    msg = EmailMultiAlternatives(subject, body, from_email, to)
+
+    html_body = markdown.markdown(body, output_format="html5")
+    msg.attach_alternative(html_body, "text/html")
+    return msg
+
+
+def send_mail(subject_template_name, body_template_name, users=None,
+              from_email=None, extra_context=None, fail_silently=False):
+    """
+    Send mail to the given users (or to the site devs if no users are
+    provided) rendered with the given templates.
 
     Default context for the templates is:
 
     * site: The current Site instance.
     * tier_info: The SiteTierInfo instance for the current site.
     * tier: The currently selected Tier.
+    * user: The current user being emailed, if applicable.
 
-    A dictionary containing additional context variables can be passed in as
-    ``extra_context``. These will override the default context.
-
-    The current user to be emailed will be added to the context as ``user``.
-
-    The subject template should be a plaintext file; it will have any HTML
-    tags stripped. The body template should be a markdown file; it will have
-    HTML tags stripped, then be run through a markdown filter to generate an
-    HTML version of the email.
+    :param subject_template_name: This the name of a template for the email's
+                                  subject line. After the template is
+                                  rendered, all HTML tags will be stripped.
+    :param body_template_name: This should be the name of a template for the
+                               body text. After the template is rendered, it
+                               will be passed through a markdown filter.
+    :param users: An iterable of users to email, or ``None`` to email the
+                  site devs (according to the ``ADMINS`` setting.)
+    :param from_email: The email these messages should be sent from, or
+                       ``None`` to use the ``DEFAULT_FROM_EMAIL`` setting.
+    :param extra_context: Additional context variables for the templates;
+                          This will override the default context.
+    :param fail_silently: This has the same meaning as for django's core mail
+                          functionality.
 
     """
     tier_info = SiteTierInfo.objects.get_current()
-    c = {
+    context = Context({
         'tier_info': tier_info,
         'site': tier_info.site,
         'tier': tier_info.tier
-    }
-    c.update(extra_context or {})
-    for user in users:
-        if not user.email:
-            continue
-        c['user'] = user
-        subject = striptags(render_to_string(subject_template, c))
-        body = striptags(render_to_string(body_template, c))
-        from_email = from_email or settings.DEFAULT_FROM_EMAIL
-        msg = EmailMultiAlternatives(subject, body, from_email, [user.email])
+    })
+    context.update(extra_context or {})
+    subject_template = loader.get_template(subject_template_name)
+    body_template = loader.get_template(body_template_name)
+    from_email = from_email or settings.DEFAULT_FROM_EMAIL
 
-        html_body = markdown.markdown(body, output_format="html5")
-        msg.attach_alternative(html_body, "text/html")
+    if users is not None:
+        for user in users:
+            if not user.email:
+                continue
+            context.push()
+            context['user'] = user
+            msg = render_to_email(subject_template, body_template, context,
+                                  [user.email], from_email)
+            msg.send(fail_silently=fail_silently)
+            context.pop()
+    else:
+        to = [admin[1] for admin in settings.ADMINS]
+        msg = render_to_email(subject_template, body_template, context, to,
+                              from_email)
         msg.send(fail_silently=fail_silently)
+
 
 
 def send_welcome_email():

@@ -72,7 +72,10 @@ class SiteTierInfoManager(SiteRelatedManager):
 
 
 class SiteTierInfo(models.Model):
-    site = models.OneToOneField(Site)
+    site = models.OneToOneField(Site, related_name='tier_info')
+
+    #: The original subdomain for this site.
+    site_name = models.CharField(max_length=30, blank=True)
 
     #: A list of tiers that the site admin can choose from.
     available_tiers = models.ManyToManyField(Tier,

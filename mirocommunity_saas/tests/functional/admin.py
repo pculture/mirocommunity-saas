@@ -18,7 +18,6 @@
 from StringIO import StringIO
 import zipfile
 
-from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.http import Http404
 from localtv.models import NewsletterSettings, SiteSettings, Video
@@ -313,11 +312,6 @@ description={description}
         theme_zip.close()
         theme.name = 'theme.zip'
         return theme
-
-    def create_theme(self, name='Test', site_id=settings.SITE_ID,
-                     description='Test description', **kwargs):
-        return Theme.objects.create(name=name, site_id=site_id,
-                                    description=description, **kwargs)
 
     def test_upload(self):
         """
