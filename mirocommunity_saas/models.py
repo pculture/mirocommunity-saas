@@ -132,8 +132,8 @@ class SiteTierInfo(models.Model):
             return (None, None)
 
         try:
-            # We use eot as the ending since (in theory) we could have
-            # subscriptions that actually do run out.
+            # We use eot as the ending since it signals when the subscription
+            # actually ends (as opposed to when it was canceled.)
             self.ipn_set.get(subscr_id=latest_signup.subscr_id,
                              flag=False,
                              txn_type='subscr_eot')

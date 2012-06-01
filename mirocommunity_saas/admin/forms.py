@@ -232,10 +232,6 @@ class TierChangeForm(PayPalPaymentsForm):
                               "{domain})").format(
                                        name=tier.name,
                                        domain=site.domain),
-                'invoice': tier.slug,
-                'custom': "{name} for {domain}".format(
-                                       name=tier.name,
-                                       domain=site.domain),
             }
             if self.tier_info.gets_free_trial:
                 initial.update({

@@ -16,4 +16,5 @@
 # along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 
 from mirocommunity_saas.tests.unit.enforcement import *
+from mirocommunity_saas.tests.unit.ipns import *
 from mirocommunity_saas.tests.unit.mail import *
