@@ -292,9 +292,20 @@ body.downgrade_confirm{
     font-weight: bold;
     margin-bottom: 16px;
   }
-  p{
+  p, dd, dt{
     font-size: 16px;
-    margin-bottom: 16px;
     line-height: 24px;
+  }
+  p, dd{
+    margin-bottom: 16px;
+  }
+  dt + dt{
+    margin-top: 16px;
+  }
+  dt{
+    font-weight: bold;
+  }
+  dd{
+    margin-left: 16px;
   }
 }

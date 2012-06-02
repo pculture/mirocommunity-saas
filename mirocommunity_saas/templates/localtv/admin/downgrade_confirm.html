@@ -30,82 +30,90 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 
 {% block content %}
   <h1>Warning!</h1>
-  <h2>Downgrading to {{ tier.name }} will cause the following changes:</h2>
+  <h2>You are about to downgrade from {{ tier_info.tier.name }} to {{ tier.name }}.</h2>
 
-  {% if form.is_cancellation and tier_info.enforce_payments %}
-    <h3>Cancel your Subscription</h3>
-
-    <p>In order to stop your payments, you will need to cancel your subscription in Paypal. Please note that this change will be effective immediately, and cannot be reversed.</p><p>To cancel your current subscription:</p>
-
-    <ol>
-      <li>Click "Yes, Do It" button below. </li>
-      <li> On PayPal account management page, log in if prompted to do so.</li>
-      <li> Click "Details" link for your current payment. </li>
-      <li> On the Transactions Details page, click "View Details" link.</li>
-      <li> On Subscription Details page, click "Cancel" link.</li>
-    </ol>
+  {% if tier_info.enforce_payments %}
+  <p>You will need to go through PayPal by clicking the &ldquo;Do it&rdquo; button at the end of this page in order to complete your downgrade. Your current level of service will continue through the end of your current payment period, at which point you will see the following changes:</p>
+  {% else %}
+  <p>You will see the following changes:</p>
   {% endif %}
 
-  {% if admins_to_demote %}
-    <h3>Limit of {{ tier.admins_limit }} admins</h3>
-    <p>The following current administrators will become regular users:</p>
-    <ul>
-      {% for user in admins_to_demote %}
-        <li>{% if user.get_full_name %}{{ user.get_full_name }} ({{ user.username }}){% else %}{{ user.username }}{% endif %}</li>
-      {% endfor %}
-    </ul>
-  {% endif %}
-
-  {% if videos_to_deactivate %}
-    <h3>Limit of {{ tier.video_limit }} videos</h3>
-    <p>Since you are {{ videos_to_deactivate|length }} video{{videos_to_deactivate|length|pluralize}}
-      over this limit, you will no longer be able to publish
-      new videos. Videos submitted by users and videos from sources will go into your
-      review queue, but you will not be able to approve them until you are within the
-      limit.</p>
-
-    <p>When you downgrade to {{ tier.name }}, the oldest {{ videos_to_deactivate|length }}
-      video{{ videos_to_deactivate|length|pluralize }} will be unapproved
-      and will return to the review queue. When you delete enough videos on the site
-      to be under {{ tier.video_limit}}, you will be able to re-approve these videos.</p>
-  {% endif %}
-
-  {% if tier_info.tier.custom_css and not tier.custom_css %}
-    <h3>Custom CSS</h3>
-    <p>Any custom CSS you have entered will no longer be applied to
-      your site, and you will not be able to edit the Custom CSS. If you
-      upgrade back to a premium site, your Custom CSS will be preserved and
-      applied.</p>
-  {% endif %}
-
-  {% if tier_info.tier.ads_allowed and not tier.ads_allowed %}
-    <h3>Advertising</h3>
-    <p>Advertising is only allowed on sites with a Premium or Max
-      account level. If you downgrade to {{ tier.name }} and continue to run
-      advertising for more than two weeks, we reserve the right to shut
-      down your site.</p>
-  {% endif %}
-
-  {% if tier_info.tier.custom_domain and not tier.custom_domain and tier_info.site.domain|slice:"-18" != ".mirocommunity.org" %}
-    <h3>Custom domain</h3>
-    <p>Custom domains are not offered with the {{ tier.name }} account level. If you downgrade, we will revert your site to a domain within
-      mirocommunity.org.</p>
-  {% endif %}
-
-  {% if tier_info.tier.custom_themes and not tier.custom_themes %}
-    <h3>Custom Themes</h3>
-    <p>You will no longer be able to add custom themes. Custom themes that have
-  previously been uploaded will be saved, but cannot be activated.</p>
-    
-    {% if theme %}
-    <p>You currently have a custom theme activated, so when you click "Yes," the theme will switch back to the default theme.</p>
+  <dl>
+    {% if tier.admin_limit or tier.admin_limit == 0 %}
+      {% if tier.admin_limit < tier_info.tier.admin_limit %}
+        {% with admin_limit=tier.admin_limit|add:1 %}
+          <dt>Limit of {{ admin_limit }} admin{{ admin_limit|pluralize }}</dt>
+          {% if admins_to_demote %}
+            <dd>You currently have {{ admins_to_demote|length }} admin{{ admins_to_demote|pluralize }} above that limit. Extra admins will be automatically demoted to ordinary users.</dd>
+          {% endif %}
+        {% endwith %}
+      {% endif %}
     {% endif %}
-  {% endif %}
-    <form action="{{ form.get_action }}" method="{{ form.get_method }}">
-      {% for field in form.hidden_fields %}{{ field }}{% endfor %}
-      <button class="approve_button" type="submit">
-        <span>Yes, do it</span>
-      </button>
-    </form>
-    <a class="reject_button" href="{% url localtv_admin_tier %}"><span>Cancel</span></a>
+
+    {% if tier.video_limit or tier.video_limit == 0 %}
+      {% if tier.video_limit < tier_info.tier.video_limit %}
+        <dt>Limit of {{ tier.video_limit }} video{{ tier.video_limit|pluralize }}</dt>
+        <dd>
+          {% if videos_to_deactivate %}
+            You currently have {{ videos_to_deactivate|length }}
+            video{{ videos_to_deactivate|pluralize }} above that limit.
+            As many of the oldest video(s) on your site as necessary
+            will automatically be returned to the review queue in order
+            to bring you below the limit.
+          {% else %}
+            {% if tier_info.enforce_payments %}
+              You're currently within that limit. If you go above it
+              before the end of the payment period, old videos from
+              your site will be automatically returned to the review
+              queue to bring you below it again.
+            {% endif %}
+          {% endif %}
+        </dd>
+      {% endif %}
+    {% endif %}
+
+    {% if tier_info.tier.custom_css and not tier.custom_css %}
+      <dt>No custom CSS</dt>
+      <dd>Any custom CSS you have entered will no longer be applied to
+          your site, and you will not be able to edit it. However, it
+          will not be deleted, so you won't have to re-enter it if you
+          later upgrade to a tier that allows custom css.</dd>
+    {% endif %}
+
+    {% if tier_info.tier.ads_allowed and not tier.ads_allowed %}
+      <dt>No advertising</dt>
+      <dd>Advertising is no longer permitted with {{ tier.name }}. If
+          you continue to run advertising after your downgrade
+          {% if tier_info.enforce_payments %} takes effect{% endif %},
+          we reserve the right to shut down your site.</dd>
+    {% endif %}
+
+    {% if tier_info.tier.custom_domain and not tier.custom_domain %}
+      <dt>No custom domain</dt>
+      {% if tier_info.site.domain|slice:"-18" != ".mirocommunity.org" %}
+        <dd>Custom domains are not offered with the {{ tier.name }}
+            account level. If you downgrade, we will revert your site to
+            {% if tier_info.site_name %}
+              {{ tier_info.site_name }}.{% else %}
+              a domain within
+            {% endif %}mirocommunity.org.</dd>
+      {% endif %}
+    {% endif %}
+
+    {% if tier_info.tier.custom_themes and not tier.custom_themes %}
+      <dt>No custom themes</dt>
+      <dd>You will no longer be able to add custom themes. Custom themes
+          that have previously been uploaded will be saved, but cannot
+          be activated.{% if theme %} Your current theme will
+          automatically be deactivated.{% endif %}</dd>
+    {% endif %}
+  </dl>
+
+  <form action="{{ form.get_action }}" method="{{ form.get_method }}">
+    {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+    <button class="approve_button" type="submit">
+      <span>Do it</span>
+    </button>
+  </form>
+  <a class="reject_button" href="{% url localtv_admin_tier %}"><span>Cancel</span></a>
 {% endblock content %}
