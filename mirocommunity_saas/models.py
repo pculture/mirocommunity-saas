@@ -115,48 +115,60 @@ class SiteTierInfo(models.Model):
     def __unicode__(self):
         return "Tier info for {0}".format(self.site.domain)
 
-    def get_current_subscription(self):
+    def get_subscription(self):
         """
-        Returns ``None`` if there is no active subscription, or a tuple where
-        the first item is the most recent ipn which started or modified the
-        subscription and the second item is either the most recent payment, or
-        ``None`` if there have not been any payments.
+        Returns ``None`` if there is no active subscription, or the most
+        recent ipn which started or modified the current active subscription.
 
         """
-        signups = self.ipn_set.filter(flag=False,
-                                      txn_type__in=('subscr_signup',
-                                                    'subscr_modify'))
+        subscriptions = self.ipn_set.filter(flag=False,
+                                            txn_type__in=('subscr_signup',
+                                                          'subscr_modify'))
         try:
-            latest_signup = signups.order_by('-created_at')[0]
+            subscription = subscriptions.order_by('-created_at')[0]
         except IndexError:
-            return (None, None)
+            return None
 
         try:
             # We use eot as the ending since it signals when the subscription
             # actually ends (as opposed to when it was canceled.)
-            self.ipn_set.get(subscr_id=latest_signup.subscr_id,
+            self.ipn_set.get(subscr_id=subscription.subscr_id,
                              flag=False,
                              txn_type='subscr_eot')
         except PayPalIPN.DoesNotExist:
-            pass
+            return subscription
         else:
-            return (None, None)
-
-        payments = self.ipn_set.filter(flag=False,
-                                       txn_type='subscr_payment',
-                                       subscr_id=latest_signup.subscr_id)
-        try:
-            latest_payment = payments.order_by('-created_at')[0]
-        except IndexError:
-            latest_payment = None
-
-        return (latest_signup, latest_payment)
+            return None
 
     @property
     def subscription(self):
         if not hasattr(self, '_subscription'):
-            self._subscription = self.get_current_subscription()
+            self._subscription = self.get_subscription()
         return self._subscription
+
+    def get_latest_payment(self):
+        """
+        Returns the latest payment on the current subscription, or ``None``
+        if there is no current subscription or if no payments have been made
+        on the current subscription.
+
+        """
+        if self.subscription is None:
+            return None
+
+        payments = self.ipn_set.filter(flag=False,
+                                       txn_type='subscr_payment',
+                                       subscr_id=self.subscription.subscr_id)
+        try:
+            return payments.order_by('-created_at')[0]
+        except IndexError:
+            return None
+
+    @property
+    def latest_payment(self):
+        if not hasattr(self, '_latest_payment'):
+            self._latest_payment = self.get_latest_payment()
+        return self._latest_payment
 
     def _period_to_timedelta(self, period_str):
         """
@@ -172,14 +184,6 @@ class SiteTierInfo(models.Model):
 
         return period_len * period_unit
 
-    @property
-    def payments_expected(self):
-        """
-        ``True`` if payments are being enforced and the site is on a paid
-        tier; ``False`` otherwise.
-        """
-        return self.enforce_payments and self.tier.price > 0
-
     def get_next_due_date(self):
         """
         Returns the datetime when the next payment is expected, or ``None`` if
@@ -188,16 +192,14 @@ class SiteTierInfo(models.Model):
         paid.
 
         """
-        latest_signup, latest_payment = self.subscription
-
-        if latest_signup is None:
+        if self.subscription is None:
             return None
 
-        if latest_payment is None:
+        if self.latest_payment is None:
             return self.get_free_trial_end()
 
-        period = self._period_to_timedelta(latest_signup.period3)
-        return latest_payment.payment_date + period
+        period = self._period_to_timedelta(self.subscription.period3)
+        return self.latest_payment.payment_date + period
 
     def get_free_trial_end(self):
         """
@@ -208,20 +210,18 @@ class SiteTierInfo(models.Model):
         actually enforced, or whether the current tier is paid.
 
         """
-        latest_signup = self.subscription[0]
-
         # If they have no signup, then the question is meaningless.
-        if latest_signup is None:
+        if self.subscription is None:
             return None
 
-        start = latest_signup.subscr_date
+        start = self.subscription.subscr_date
 
         # If there is no free trial, then return the start of the
         # subscription.
-        if not latest_signup.period1:
+        if not self.subscription.period1:
             return start
 
-        period = self._period_to_timedelta(latest_signup.period1)
+        period = self._period_to_timedelta(self.subscription.period1)
         return start + period
 
     @property

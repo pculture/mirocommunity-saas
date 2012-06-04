@@ -33,7 +33,7 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 {% include "localtv/admin/account_header.html" %}
   <div id="upgrade_title">
     <h1>Upgrade Your Site</h1>
-    {% if not tier_info.gets_free_trial %}
+    {% if not tier_info.had_subscription %}
     <p>All <strong>new</strong> monthly subscribers get a <strong>free 30 day</strong> trial.</p> 
     {% endif %}
   </div><!-- // upgrade_title -->

@@ -25,15 +25,22 @@ from localtv.admin.views import IndexView
 from localtv.decorators import require_site_admin
 from uploadtemplate.models import Theme
 
-from mirocommunity_saas.admin.forms import TierChangeForm
+from mirocommunity_saas.admin.forms import (TierChangeForm,
+                                            DowngradeConfirmationForm,
+                                            PayPalCancellationForm,
+                                            PayPalSubscriptionForm)
 from mirocommunity_saas.models import SiteTierInfo, Tier
 from mirocommunity_saas.utils.tiers import (check_tier_change_token,
-                                            make_tier_change_token,
                                             admins_to_demote,
                                             videos_to_deactivate)
 
 
 class TierIndexView(IndexView):
+    """
+    Overrides the base admin index view to add the percent of videos used
+    to the context.
+
+    """
     def get_context_data(self, **kwargs):
         context = super(TierIndexView, self).get_context_data(**kwargs)
         tier = SiteTierInfo.objects.get_current().tier
@@ -47,26 +54,7 @@ class TierIndexView(IndexView):
 index = require_site_admin(TierIndexView.as_view())
 
 
-class BaseTierView(TemplateView):
-    """
-    Base class for views that handle tier changes.
-
-    """
-    form_class = TierChangeForm
-    TOKEN_PARAM = 's'
-    SLUG_PARAM = 'tier'
-
-    def get_tier_form(self, tier):
-        return self.form_class(tier, **self.get_tier_form_kwargs(tier))
-
-    def get_tier_form_kwargs(self, tier):
-        return {
-            'return_params': {self.TOKEN_PARAM: make_tier_change_token(tier),
-                              self.SLUG_PARAM: tier.slug},
-        }
-
-
-class TierView(BaseTierView):
+class TierView(TemplateView):
     """
     Base class for views for changing tiers and confirming any Bad Things that
     might happen as a result.
@@ -81,38 +69,49 @@ class TierView(BaseTierView):
 
     def get_context_data(self, **kwargs):
         context = super(TierView, self).get_context_data(**kwargs)
+        tier_info = SiteTierInfo.objects.get_current()
+        forms = {}
+        for tier in tier_info.available_tiers.order_by('price'):
+            if tier.price == tier_info.tier.price:
+                forms[tier] = None
+            elif tier.price < tier_info.price:
+                forms[tier] = DowngradeConfirmationForm(tier)
+            else:
+                if tier_info.enforce_payments:
+                    forms[tier] = PayPalSubscriptionForm(tier)
+                else:
+                    forms[tier] = TierChangeForm(tier)
+
         context.update({
-            'forms': self.forms,
-            'tier_info': self.tier_info,
+            'forms': forms,
+            'tier_info': tier_info,
         })
         return context
 
-    def get_forms(self):
-        self.tier_info = SiteTierInfo.objects.get_current()
-        self.tiers = self.tier_info.available_tiers.order_by('price')
-        forms = dict((tier, self.get_tier_form(tier))
-                     for tier in self.tiers)
-        return forms
 
-    def get_tier_form_kwargs(self, tier):
-        kwargs = super(TierView, self).get_tier_form_kwargs(tier)
-        kwargs['confirm_params'] = {self.SLUG_PARAM: tier.slug}
-        return kwargs
-
-
-class DowngradeConfirmationView(BaseTierView):
+class DowngradeConfirmationView(TemplateView):
     template_name = 'localtv/admin/downgrade_confirm.html'
 
     def get_context_data(self, **kwargs):
-        context = BaseTierView.get_context_data(self)
+        context = super(DowngradeConfirmationView,
+                        self).get_context_data(**kwargs)
         tier_info = SiteTierInfo.objects.get_current()
         slug = self.request.GET.get(self.SLUG_PARAM, '')
         try:
             tier = tier_info.available_tiers.get(slug=slug)
         except Tier.DoesNotExist:
             raise Http404
+        if tier.price >= tier_info.price:
+            raise Http404
+        if tier_info.enforce_payments:
+            if tier.price == 0:
+                form = PayPalCancellationForm(tier)
+            else:
+                form = PayPalSubscriptionForm(tier)
+        else:
+            form = TierChangeForm(tier)
         context.update({
-            'form': self.get_tier_form(tier),
+            'form': form,
             'tier': tier,
             'tier_info': tier_info,
             'admins_to_demote': admins_to_demote(tier),
@@ -136,7 +135,7 @@ class TierChangeView(View):
         return HttpResponseRedirect(reverse('localtv_admin_tier'))
 
     def dispatch(self, request, *args, **kwargs):
-        tier_slug = request.GET.get(TierView.SLUG_PARAM, '')
+        tier_slug = request.GET.get('tier', '')
         self.tier_info = SiteTierInfo.objects.get_current()
 
         try:
@@ -144,7 +143,7 @@ class TierChangeView(View):
         except Tier.DoesNotExist:
             return self.finished()
 
-        token = request.GET.get(TierView.TOKEN_PARAM, '')
+        token = request.GET.get('s', '')
         if not check_tier_change_token(self.tier, token):
             return self.finished()
 

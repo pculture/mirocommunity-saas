@@ -18,7 +18,6 @@
 from django.core import mail
 from django.test.utils import override_settings
 from mock import patch
-from paypal.standard.ipn.models import PayPalIPN
 from paypal.standard.ipn.signals import (payment_was_successful,
                                          payment_was_flagged,
                                          subscription_signup,
@@ -158,9 +157,8 @@ class ExpirationHandlerTestCase(BaseTestCase):
         ipn = self.create_ipn()
         tier = self.create_tier()
         tier_info = self.create_tier_info(tier)
-        with patch.object(tier_info, 'get_current_subscription',
-                          return_value=(object(), None)):
-            expiration_handler(ipn)
+        tier_info._subscription = object()
+        expiration_handler(ipn)
         self.assertFalse(self._set_tier_by_payment.called)
         self._record_new_ipn.assert_called_with(ipn)
 
@@ -173,9 +171,8 @@ class ExpirationHandlerTestCase(BaseTestCase):
         ipn = self.create_ipn()
         tier = self.create_tier()
         tier_info = self.create_tier_info(tier)
-        with patch.object(tier_info, 'get_current_subscription',
-                          return_value=(None, None)):
-            expiration_handler(ipn)
+        tier_info._subscription = None
+        expiration_handler(ipn)
         self._record_new_ipn.assert_called_with(ipn)
         self._set_tier_by_payment.assert_called_with(0)
 
@@ -198,7 +195,7 @@ class RecordNewIpnTestCase(BaseTestCase):
         ipn = self.create_ipn(txn_type="subscr_signup")
         tier = self.create_tier()
         tier_info = self.create_tier_info(tier)
-        self.assertEqual(tier_info.subscription, (None, None))
+        self.assertEqual(tier_info.subscription, None)
         record_new_ipn(ipn)
         self.assertEqual(ipn, tier_info.ipn_set.all()[0])
-        self.assertEqual(tier_info.subscription, (ipn, None))
+        self.assertEqual(tier_info.subscription, ipn)

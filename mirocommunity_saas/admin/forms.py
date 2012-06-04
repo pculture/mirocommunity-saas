@@ -22,7 +22,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
 from django.core.exceptions import ValidationError
-from django.core.urlresolvers import reverse
+from django.core.urlresolvers import reverse, reverse_lazy
 from django.forms.models import modelformset_factory
 from django.template.defaultfilters import pluralize
 from localtv.admin.forms import (EditSettingsForm as _EditSettingsForm,
@@ -36,6 +36,7 @@ from paypal.standard.conf import (POSTBACK_ENDPOINT,
 from paypal.standard.forms import PayPalPaymentsForm
 
 from mirocommunity_saas.models import SiteTierInfo
+from mirocommunity_saas.utils.tiers import make_tier_change_token
 
 
 class EditSettingsForm(_EditSettingsForm):
@@ -168,114 +169,113 @@ VideoFormSet = modelformset_factory(
     extra=1)
 
 
-class TierChangeForm(PayPalPaymentsForm):
+class DowngradeConfirmationForm(forms.Form):
     """
-    On __init__, takes the following arguments:
-
-    :param tier: The tier which would be changed to.
-    :param return_params: A mapping object or iterable of tuples suitable for
-                          being urlencoded and passed to the return url.
-    :param confirm_params: A mapping object or iterable of tuples suitable for
-                           being urlencoded and passed to the confirmation
-                           url. If this is provided, the form will try to
-                           submit itself to the confirmation view if it is
-                           a downgrade.
-
-    Additional keyword arguments can be passed in; they will be passed
-    to the return url.
+    This form is designed to get confirmation of a downgrade.
 
     """
+    action = reverse_lazy('localtv_admin_tier_confirm')
+    method = "get"
+
+    tier = forms.SlugField(widget=forms.HiddenInput)
+
+    def __init__(self, tier, *args, **kwargs):
+        super(DowngradeConfirmationForm, self).__init__(*args, **kwargs)
+        self.tier = tier
+        self.initial['tier'] = tier.slug
+
+
+class TierChangeForm(forms.Form):
+    """
+    This form can be used to change a tier without going through paypal.
+
+    """
+    action = reverse_lazy('localtv_admin_tier_change')
+    method = "post"
+
+    tier = forms.SlugField(widget=forms.HiddenInput)
+    s = forms.CharField(widget=forms.HiddenInput)
+
+    def __init__(self, tier, *args, **kwargs):
+        super(TierChangeForm, self).__init__(*args, **kwargs)
+        self.tier = tier
+        self.initial['tier'] = tier.slug
+        self.initial['s'] = make_tier_change_token(tier)
+
+
+class PayPalCancellationForm(forms.Form):
+    action = (SANDBOX_POSTBACK_ENDPOINT if settings.PAYPAL_TEST else
+              POSTBACK_ENDPOINT)
+    method = "get"
+
+    cmd = forms.CharField(widget=forms.HiddenInput)
+    alias = forms.CharField(widget=forms.HiddenInput)
+
+    def __init__(self, tier, *args, **kwargs):
+        super(PayPalCancellationForm, self).__init__(*args, **kwargs)
+        self.tier = tier
+        tier_info = SiteTierInfo.objects.get_current()
+        self.initial.update({
+            'cmd': '_subscr-find',
+            'alias': tier_info.subscription.payer_email
+        })
+
+
+class PayPalSubscriptionForm(PayPalPaymentsForm):
+    action = (SANDBOX_POSTBACK_ENDPOINT if settings.PAYPAL_TEST else
+              POSTBACK_ENDPOINT)
+    method = "post"
     return_url = 'localtv_admin_tier_change'
     cancel_return = 'localtv_admin_tier'
     notify_url = 'paypal-ipn'
-    confirm_url = 'localtv_admin_tier_confirm'
 
-    def __init__(self, tier, return_params, confirm_params=None):
+    def __init__(self, tier, *args, **kwargs):
+        super(PayPalSubscriptionForm, self).__init__(*args, **kwargs)
         self.tier = tier
-        self.tier_info = SiteTierInfo.objects.get_current()
-        self.confirm_params = confirm_params or {}
-        self.return_params = return_params
-        if self.confirm_params and self.is_downgrade():
-            # We'll get the confirmation view next.
-            initial = dict(self.confirm_params)
-        elif not self.tier_info.enforce_payments:
-            # We'll get the return view next.
-            initial = dict(self.return_params)
-        elif self.is_cancellation():
-            initial = {
-                'cmd': '_subscr-find',
-                'alias': self.tier_info.subscription[0].payer_email
-            }
+        site = Site.objects.get_current()
+        tier_info = SiteTierInfo.objects.get_current()
+        # Downgrades are delayed until the subscription expires, so we should
+        # only use the return_url (which would immediately change the tier) if
+        # this is an upgrade.
+        cancel_return = 'http://{domain}{url}'.format(
+                                    domain=site.domain,
+                                    url=reverse(self.cancel_return))
+        if tier.price < tier_info.tier.price:
+            return_url = cancel_return
         else:
-            site = Site.objects.get_current()
-            initial = {
-                'cmd': '_xclick-subscriptions',
-                'business': RECEIVER_EMAIL,
-                # TODO: Should probably reference a url on the current site.
-                'image_url': "http://www.mirocommunity.org/images/mc_logo.png",
-                'a3': unicode(self.tier.price),
-                'p3': '30',
-                't3': 'D',
-                'src': '1',
-                'sra': '1',
-                'cancel_return': 'http://{domain}{url}'.format(
-                                       domain=site.domain,
-                                       url=reverse(self.cancel_return)),
-                'notify_url': 'http://{domain}{url}'.format(
-                                       domain=site.domain,
-                                       url=reverse(self.notify_url)),
-                'return_url': 'http://{domain}{url}?{query}'.format(
-                                       domain=site.domain,
-                                       url=reverse(self.return_url),
-                                       query=urllib.urlencode(return_params)),
-                'item_name': ("Miro Community subscription ({name} on "
-                              "{domain})").format(
-                                       name=tier.name,
-                                       domain=site.domain),
+            return_params = {
+                'tier': tier.slug,
+                's': make_tier_change_token(tier)
             }
-            if self.tier_info.gets_free_trial:
-                initial.update({
-                    'a1': '0',
-                    'p1': '30',
-                    't1': 'D'
-                })
-        super(TierChangeForm, self).__init__(initial=initial)
-        if self.confirm_params and self.is_downgrade():
-            # Here, we're GETing the page, so include the params as fields.
-            self.fields = dict((k,
-                                forms.CharField(widget=forms.HiddenInput()))
-                               for k in self.confirm_params)
-        elif not self.tier_info.enforce_payments:
-            # same as above, but for the actual return view.
-            self.fields = dict((k,
-                                forms.CharField(widget=forms.HiddenInput()))
-                               for k in self.return_params)
-        elif self.is_cancellation():
-            self.fields = {
-                'cmd': forms.CharField(widget=forms.HiddenInput()),
-                'alias': forms.CharField(widget=forms.HiddenInput())
-            }
-
-    def is_cancellation(self):
-        return (self.tier.price == 0 and
-                self.tier_info.subscription[0] is not None)
-
-    def is_downgrade(self):
-        return self.tier.price < self.tier_info.tier.price
-
-    def get_action(self):
-        if self.confirm_params and self.is_downgrade():
-            return reverse(self.confirm_url)
-        if self.tier_info.enforce_payments:
-            if settings.PAYPAL_TEST:
-                return SANDBOX_POSTBACK_ENDPOINT
-            return POSTBACK_ENDPOINT
-        return reverse(self.return_url)
-
-    def get_method(self):
-        if (self.confirm_params and self.is_downgrade() or
-            not self.tier_info.enforce_payments):
-            return "get"
-        if self.is_cancellation():
-            return "get"
-        return "post"
+            return_url = 'http://{domain}{url}?{query}'.format(
+                                    domain=site.domain,
+                                    url=reverse(self.return_url),
+                                    query=urllib.urlencode(return_params))
+        initial = {
+            'cmd': '_xclick-subscriptions',
+            'business': RECEIVER_EMAIL,
+            # TODO: Should probably reference a url on the current site.
+            'image_url': "http://www.mirocommunity.org/images/mc_logo.png",
+            'a3': unicode(self.tier.price),
+            'p3': '30',
+            't3': 'D',
+            'src': '1',
+            'sra': '1',
+            'cancel_return': cancel_return,
+            'notify_url': 'http://{domain}{url}'.format(
+                                   domain=site.domain,
+                                   url=reverse(self.notify_url)),
+            'return_url': return_url,
+            'item_name': ("Miro Community subscription ({name} on "
+                          "{domain})").format(
+                                   name=tier.name,
+                                   domain=site.domain),
+        }
+        if not tier_info.had_subscription:
+            initial.update({
+                'a1': '0',
+                'p1': '30',
+                't1': 'D'
+            })
+        elif tier_info.subscription is not None:
+            initial['modify'] = '2'

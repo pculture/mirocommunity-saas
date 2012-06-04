@@ -252,7 +252,7 @@ def expiration_handler(sender, **kwargs):
         # subscription, which could happen if they cancelled an old
         # subscription and then started a new one before the old one expired.
         tier_info = SiteTierInfo.objects.get_current()
-        if tier_info.subscription[0] is None:
+        if tier_info.subscription is None:
             set_tier_by_payment(0)
 
 
