@@ -22,6 +22,10 @@ from django.utils.crypto import constant_time_compare, salted_hmac
 from localtv.models import SiteSettings, Video
 from localtv.signals import pre_mark_as_active, submit_finished
 from paypal.standard.ipn.signals import (payment_was_successful,
+                                         payment_was_flagged,
+                                         subscription_signup,
+                                         subscription_modify,
+                                         subscription_cancel,
                                          subscription_eot)
 from uploadtemplate.models import Theme
 
@@ -240,12 +244,32 @@ def expiration_handler(sender, **kwargs):
     cancellation) then we should reset to the basic (i.e. free) tier.
 
     """
-    # Only do this for non-flagged ipns.
+    # First, make sure that the ipn is added.
+    record_new_ipn(sender, **kwargs)
+    # Only continue for non-flagged ipns.
     if not sender.flag:
         # Only continue if the user doesn't have a current active
         # subscription, which could happen if they cancelled an old
         # subscription and then started a new one before the old one expired.
         tier_info = SiteTierInfo.objects.get_current()
-        subscription = tier_info.get_current_subscription()
-        if subscription[0] is None:
+        if tier_info.subscription[0] is None:
             set_tier_by_payment(0)
+
+
+@receiver(payment_was_successful)
+@receiver(payment_was_flagged)
+@receiver(subscription_cancel)
+@receiver(subscription_modify)
+@receiver(subscription_signup)
+def record_new_ipn(sender, **kwargs):
+    """
+    Adds the sending ipn to the ``ipn_set`` of the current ``SiteTierInfo``
+    and clears the subscription cache.
+
+    """
+    tier_info = SiteTierInfo.objects.get_current()
+    tier_info.ipn_set.add(sender)
+    try:
+        del tier_info._subscription
+    except AttributeError:
+        pass

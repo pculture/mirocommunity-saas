@@ -17,26 +17,27 @@
 
 from django.core import mail
 from django.test.utils import override_settings
-import mock
+from mock import patch
 from paypal.standard.ipn.models import PayPalIPN
 from paypal.standard.ipn.signals import (payment_was_successful,
+                                         payment_was_flagged,
+                                         subscription_signup,
+                                         subscription_modify,
+                                         subscription_cancel,
                                          subscription_eot)
 
 from mirocommunity_saas.tests.base import BaseTestCase
-from mirocommunity_saas.utils.tiers import set_tier_by_payment
+from mirocommunity_saas.utils.tiers import (set_tier_by_payment,
+                                            payment_handler,
+                                            expiration_handler,
+                                            record_new_ipn)
 
 
 @override_settings(ADMINS=(('Admin', 'admin@localhost'),))
 class SetTierByPaymentTestCase(BaseTestCase):
     def setUp(self):
-        self._enforce_tier_called = False
-        self._enforce_tier_tier = None
-        def mark_enforce_tier_called(new_tier):
-            self._enforce_tier_called = True
-            self._enforce_tier_tier = new_tier
-        patcher = mock.patch('mirocommunity_saas.utils.tiers.enforce_tier',
-                             mark_enforce_tier_called)
-        patcher.start()
+        patcher = patch('mirocommunity_saas.utils.tiers.enforce_tier')
+        self._enforce_tier = patcher.start()
         self.addCleanup(patcher.stop)
         self.tiers = {
             20: self.create_tier(price=20, slug='tier20'),
@@ -50,15 +51,12 @@ class SetTierByPaymentTestCase(BaseTestCase):
         tier = self.tiers[20]
         self.assertEqual(len(mail.outbox), 0)
         self.assertEqual(self.tier_info.tier, tier)
-        self.assertFalse(self._enforce_tier_called)
-        self.assertTrue(self._enforce_tier_tier is None)
 
         set_tier_by_payment(tier.price)
 
         self.assertEqual(len(mail.outbox), 0)
         self.assertEqual(self.tier_info.tier, tier)
-        self.assertFalse(self._enforce_tier_called)
-        self.assertTrue(self._enforce_tier_tier is None)
+        self.assertFalse(self._enforce_tier.called)
 
     def test_valid_change(self):
         """
@@ -68,8 +66,6 @@ class SetTierByPaymentTestCase(BaseTestCase):
         """
         tier = self.tiers[30]
         self.assertEqual(len(mail.outbox), 0)
-        self.assertFalse(self._enforce_tier_called)
-        self.assertTrue(self._enforce_tier_tier is None)
         self.assertNotEqual(self.tier_info.tier, tier)
 
         set_tier_by_payment(tier.price)
@@ -77,8 +73,7 @@ class SetTierByPaymentTestCase(BaseTestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ['admin@localhost'])
         self.assertEqual(self.tier_info.tier, tier)
-        self.assertTrue(self._enforce_tier_called)
-        self.assertEqual(self._enforce_tier_tier, tier)
+        self._enforce_tier.assert_called_with(tier)
 
     def test_invalid_change(self):
         """
@@ -88,15 +83,13 @@ class SetTierByPaymentTestCase(BaseTestCase):
         """
         tier = self.tier_info.tier
         self.assertEqual(len(mail.outbox), 0)
-        self.assertFalse(self._enforce_tier_called)
 
         set_tier_by_payment(40)
 
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ['admin@localhost'])
         self.assertEqual(self.tier_info.tier, tier)
-        self.assertFalse(self._enforce_tier_called)
-        self.assertTrue(self._enforce_tier_tier is None)
+        self.assertFalse(self._enforce_tier.called)
 
         duplicate_tier = self.create_tier(price=30, slug='tier30-2')
         self.tier_info.available_tiers.add(duplicate_tier)
@@ -106,60 +99,106 @@ class SetTierByPaymentTestCase(BaseTestCase):
         self.assertEqual(len(mail.outbox), 2)
         self.assertEqual(mail.outbox[0].to, ['admin@localhost'])
         self.assertEqual(self.tier_info.tier, tier)
-        self.assertFalse(self._enforce_tier_called)
-        self.assertTrue(self._enforce_tier_tier is None)
+        self.assertFalse(self._enforce_tier.called)
 
 
-class IPNHandlerTestCase(BaseTestCase):
+class PaymentHandlerTestCase(BaseTestCase):
+    def test_receiver(self):
+        """
+        payment_handler should be a receiver for payment_was_successful.
+        """
+        self.assertTrue(payment_handler in
+                        payment_was_successful._live_receivers(None))
+
+    def test(self):
+        """
+        Successful payments should simply call set_tier_by_payment with the
+        amount paid.
+
+        """
+        ipn = self.create_ipn(mc_gross=20)
+        with patch('mirocommunity_saas.utils.tiers.'
+                   'set_tier_by_payment') as mock:
+            payment_handler(ipn)
+            mock.assert_called_with(20)
+
+
+class ExpirationHandlerTestCase(BaseTestCase):
     def setUp(self):
-        self._set_tier_by_payment_called = False
-        self._set_tier_by_payment_payment = None
-        def mark_set_tier_by_payment_called(payment):
-            self._set_tier_by_payment_called = True
-            self._set_tier_by_payment_payment = payment
-        patcher = mock.patch('mirocommunity_saas.utils.tiers.'
-                             'set_tier_by_payment',
-                             mark_set_tier_by_payment_called)
-        patcher.start()
+        patcher = patch('mirocommunity_saas.utils.tiers.set_tier_by_payment')
+        self._set_tier_by_payment = patcher.start()
+        self.addCleanup(patcher.stop)
+        patcher = patch('mirocommunity_saas.utils.tiers.record_new_ipn')
+        self._record_new_ipn = patcher.start()
         self.addCleanup(patcher.stop)
 
-    def test_payment_handler(self):
+    def test_receiver(self):
+        """expiration_handler should be a receiver for subscription_eot"""
+        self.assertTrue(expiration_handler in
+                        subscription_eot._live_receivers(None))
+
+    def test_flagged(self):
         """
-        Successful payments should cause set_tier_by_payment to be called.
+        If the ipn is flagged, the tier shouldn't be set, but the new ipn
+        should be recorded.
 
         """
-        ipn = PayPalIPN(mc_gross=20)
-        self.assertFalse(self._set_tier_by_payment_called)
-        self.assertTrue(self._set_tier_by_payment_payment is None)
-        payment_was_successful.send(ipn)
-        self.assertTrue(self._set_tier_by_payment_called)
-        self.assertEqual(self._set_tier_by_payment_payment, 20)
+        ipn = self.create_ipn(flag=True)
+        expiration_handler(ipn)
+        self.assertFalse(self._set_tier_by_payment.called)
+        self._record_new_ipn.assert_called_with(ipn)
 
-    def test_expiration_handler(self):
-        self.assertFalse(self._set_tier_by_payment_called)
-        self.assertTrue(self._set_tier_by_payment_payment is None)
+    def test_active_subscription(self):
+        """
+        If the new ipn (an expiration) leaves the subscriber with an active
+        subscription, they may have started a new subscription already; we
+        shouldn't do anything. (Except, of course, record the ipn.)
 
-        # If the ipn is flagged, do nothing.
-        ipn = PayPalIPN(flag=True)
-        subscription_eot.send(ipn)
-        self.assertFalse(self._set_tier_by_payment_called)
-        self.assertTrue(self._set_tier_by_payment_payment is None)
-
-        # If they have an active subscription even after the expiration, do
-        # nothing.
-        ipn = PayPalIPN()
+        """
+        ipn = self.create_ipn()
         tier = self.create_tier()
         tier_info = self.create_tier_info(tier)
-        with mock.patch.object(tier_info, 'get_current_subscription',
-                               return_value=(PayPalIPN(), None)):
-            subscription_eot.send(ipn)
-        self.assertFalse(self._set_tier_by_payment_called)
-        self.assertTrue(self._set_tier_by_payment_payment is None)
+        with patch.object(tier_info, 'get_current_subscription',
+                          return_value=(object(), None)):
+            expiration_handler(ipn)
+        self.assertFalse(self._set_tier_by_payment.called)
+        self._record_new_ipn.assert_called_with(ipn)
 
-        # Otherwise, go through with the downgrade.
-        ipn = PayPalIPN()
-        with mock.patch.object(tier_info, 'get_current_subscription',
-                               return_value=(None, None)):
-            subscription_eot.send(ipn)
-        self.assertTrue(self._set_tier_by_payment_called)
-        self.assertEqual(self._set_tier_by_payment_payment, 0)
+    def test_no_problems(self):
+        """
+        If the new ipn isn't flagged and doesn't leave the subscriber with an
+        active subscription, they should be set to the free tier.
+
+        """
+        ipn = self.create_ipn()
+        tier = self.create_tier()
+        tier_info = self.create_tier_info(tier)
+        with patch.object(tier_info, 'get_current_subscription',
+                          return_value=(None, None)):
+            expiration_handler(ipn)
+        self._record_new_ipn.assert_called_with(ipn)
+        self._set_tier_by_payment.assert_called_with(0)
+
+
+class RecordNewIpnTestCase(BaseTestCase):
+    def test_receiver(self):
+        """
+        record_new_ipn should be a receiver for every relevant ipn signal
+        except for subscription_eot - that's part of expiration_handler.
+
+        """
+        for signal in (payment_was_successful, payment_was_flagged,
+                       subscription_cancel, subscription_modify,
+                       subscription_signup):
+            self.assertTrue(record_new_ipn in signal._live_receivers(None))
+        self.assertFalse(record_new_ipn in
+                         subscription_eot._live_receivers(None))
+
+    def test(self):
+        ipn = self.create_ipn(txn_type="subscr_signup")
+        tier = self.create_tier()
+        tier_info = self.create_tier_info(tier)
+        self.assertEqual(tier_info.subscription, (None, None))
+        record_new_ipn(ipn)
+        self.assertEqual(ipn, tier_info.ipn_set.all()[0])
+        self.assertEqual(tier_info.subscription, (ipn, None))

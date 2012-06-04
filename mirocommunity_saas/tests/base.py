@@ -19,6 +19,7 @@ import datetime
 
 from django.conf import settings
 from localtv.tests.base import BaseTestCase as MCBaseTestCase
+from paypal.standard.ipn.models import PayPalIPN
 from uploadtemplate.models import Theme
 
 from mirocommunity_saas.models import Tier, SiteTierInfo
@@ -68,3 +69,6 @@ class BaseTestCase(MCBaseTestCase):
                      description='Test description', **kwargs):
         return Theme.objects.create(name=name, site_id=site_id,
                                     description=description, **kwargs)
+
+    def create_ipn(self, ipaddress="", **kwargs):
+        return PayPalIPN.objects.create(ipaddress=ipaddress, **kwargs)
