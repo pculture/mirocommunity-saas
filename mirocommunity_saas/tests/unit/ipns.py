@@ -35,6 +35,7 @@ from mirocommunity_saas.utils.tiers import (set_tier_by_payment,
 @override_settings(ADMINS=(('Admin', 'admin@localhost'),))
 class SetTierByPaymentTestCase(BaseTestCase):
     def setUp(self):
+        super(SetTierByPaymentTestCase, self).setUp()
         patcher = patch('mirocommunity_saas.utils.tiers.enforce_tier')
         self._enforce_tier = patcher.start()
         self.addCleanup(patcher.stop)
@@ -124,6 +125,7 @@ class PaymentHandlerTestCase(BaseTestCase):
 
 class ExpirationHandlerTestCase(BaseTestCase):
     def setUp(self):
+        super(ExpirationHandlerTestCase, self).setUp()
         patcher = patch('mirocommunity_saas.utils.tiers.set_tier_by_payment')
         self._set_tier_by_payment = patcher.start()
         self.addCleanup(patcher.stop)

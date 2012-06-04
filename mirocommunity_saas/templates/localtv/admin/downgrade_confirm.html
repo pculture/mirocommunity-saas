@@ -83,9 +83,10 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
     {% if tier_info.tier.ads_allowed and not tier.ads_allowed %}
       <dt>No advertising</dt>
       <dd>Advertising is no longer permitted with {{ tier.name }}. If
-          you continue to run advertising after your downgrade
-          {% if tier_info.enforce_payments %} takes effect{% endif %},
-          we reserve the right to shut down your site.</dd>
+          you continue to run advertising after your
+          downgrade{% if tier_info.enforce_payments %}
+          takes effect{% endif %}, we reserve the right to shut down
+          your site.</dd>
     {% endif %}
 
     {% if tier_info.tier.custom_domain and not tier.custom_domain %}
@@ -104,12 +105,12 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
       <dt>No custom themes</dt>
       <dd>You will no longer be able to add custom themes. Custom themes
           that have previously been uploaded will be saved, but cannot
-          be activated.{% if theme %} Your current theme will
+          be activated.{% if have_theme %} Your current theme will
           automatically be deactivated.{% endif %}</dd>
     {% endif %}
   </dl>
 
-  <form action="{{ form.get_action }}" method="{{ form.get_method }}">
+  <form action="{{ form.action }}" method="{{ form.method }}">
     {% for field in form.hidden_fields %}{{ field }}{% endfor %}
     <button class="approve_button" type="submit">
       <span>Do it</span>

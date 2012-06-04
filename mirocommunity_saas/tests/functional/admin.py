@@ -27,8 +27,8 @@ from uploadtemplate.models import Theme
 from mirocommunity_saas.admin.approve_reject_views import (approve_video,
                                                            feature_video,
                                                            approve_all)
-from mirocommunity_saas.admin.livesearch_views import approve
 from mirocommunity_saas.admin.design_views import newsletter_settings
+from mirocommunity_saas.admin.livesearch_views import approve
 from mirocommunity_saas.tests.base import BaseTestCase
 
 

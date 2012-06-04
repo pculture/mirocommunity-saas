@@ -20,6 +20,7 @@ import math
 
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect, Http404
+from django.utils.datastructures import SortedDict
 from django.views.generic import TemplateView, View
 from localtv.admin.views import IndexView
 from localtv.decorators import require_site_admin
@@ -62,19 +63,14 @@ class TierView(TemplateView):
     """
     template_name = 'localtv/admin/upgrade.html'
 
-    def get(self, request, *args, **kwargs):
-        self.forms = self.get_forms()
-        return super(TierView, self).get(request, *args, **kwargs)
-
-
     def get_context_data(self, **kwargs):
         context = super(TierView, self).get_context_data(**kwargs)
         tier_info = SiteTierInfo.objects.get_current()
-        forms = {}
+        forms = SortedDict()
         for tier in tier_info.available_tiers.order_by('price'):
             if tier.price == tier_info.tier.price:
                 forms[tier] = None
-            elif tier.price < tier_info.price:
+            elif tier.price < tier_info.tier.price:
                 forms[tier] = DowngradeConfirmationForm(tier)
             else:
                 if tier_info.enforce_payments:
@@ -96,16 +92,21 @@ class DowngradeConfirmationView(TemplateView):
         context = super(DowngradeConfirmationView,
                         self).get_context_data(**kwargs)
         tier_info = SiteTierInfo.objects.get_current()
-        slug = self.request.GET.get(self.SLUG_PARAM, '')
+        slug = self.request.GET.get('tier', '')
         try:
             tier = tier_info.available_tiers.get(slug=slug)
         except Tier.DoesNotExist:
             raise Http404
-        if tier.price >= tier_info.price:
+        if tier.price >= tier_info.tier.price:
             raise Http404
         if tier_info.enforce_payments:
             if tier.price == 0:
-                form = PayPalCancellationForm(tier)
+                if tier_info.subscription:
+                    form = PayPalCancellationForm(tier)
+                else:
+                    # If they don't have an active subscription, we can't very
+                    # well cancel it.
+                    form = TierChangeForm(tier)
             else:
                 form = PayPalSubscriptionForm(tier)
         else:
@@ -134,27 +135,31 @@ class TierChangeView(View):
         """
         return HttpResponseRedirect(reverse('localtv_admin_tier'))
 
-    def dispatch(self, request, *args, **kwargs):
-        tier_slug = request.GET.get('tier', '')
-        self.tier_info = SiteTierInfo.objects.get_current()
-
+    def change_tier(self, slug, token):
+        tier_info = SiteTierInfo.objects.get_current()
         try:
-            self.tier = self.tier_info.available_tiers.get(slug=tier_slug)
+            tier = tier_info.available_tiers.get(slug=slug)
         except Tier.DoesNotExist:
-            return self.finished()
+            return
 
-        token = request.GET.get('s', '')
-        if not check_tier_change_token(self.tier, token):
-            return self.finished()
+        if tier_info.tier_id == tier.pk:
+            return
 
-        return super(TierChangeView, self).dispatch(request, *args, **kwargs)
+        if not check_tier_change_token(tier, token):
+            return
+
+        tier_info.tier = tier
+        tier_info.tier_changed = datetime.datetime.now()
+        tier_info.save()
 
     def get(self, request, *args, **kwargs):
-        if self.tier_info.tier_id != self.tier.pk:
-            self.tier_info.tier = self.tier
-            self.tier_info.tier_changed = datetime.datetime.now()
-            self.tier_info.save()
+        slug = request.GET.get('tier', '')
+        token = request.GET.get('s', '')
+        self.change_tier(slug, token)
         return self.finished()
 
     def post(self, request, *args, **kwargs):
-        return self.get(request, *args, **kwargs)
+        slug = request.POST.get('tier', '')
+        token = request.POST.get('s', '')
+        self.change_tier(slug, token)
+        return self.finished()
