@@ -226,8 +226,8 @@ class EnforcementTestCase(BaseTestCase):
         tier1 = self.create_tier(slug='tier1', video_limit=None)
         tier2 = self.create_tier(slug='tier2', video_limit=100)
         tier3 = self.create_tier(slug='tier3', video_limit=1)
-        video1 = self.create_video(name='video1', update_index=False)
-        video2 = self.create_video(name='video2', update_index=False)
+        video1 = self.create_video(name='video1')
+        video2 = self.create_video(name='video2')
 
         self.assertEqual(videos_to_deactivate(tier1), [])
         self.assertEqual(videos_to_deactivate(tier2), [])
@@ -250,8 +250,7 @@ class EnforcementTestCase(BaseTestCase):
 
         videos = []
         for i in xrange(2):
-            videos.append(self.create_video(name='video{0}'.format(i),
-                                            update_index=False))
+            videos.append(self.create_video(name='video{0}'.format(i)))
 
         site = Site.objects.get_current()
         site.domain = 'custom.nu'
@@ -305,14 +304,12 @@ class FeedImportTestCase(BaseTestCase):
         start = datetime.datetime.now() - datetime.timedelta(10)
         for i in xrange(10):
             video = self.create_video(name='video{0}'.format(i),
-                                      update_index=False,
                                       status=Video.UNAPPROVED,
                                       site_id=settings.SITE_ID)
             video.when_submitted = start + datetime.timedelta(i)
             video.save()
         for i in xrange(10):
             video = self.create_video(name='video{0}-1'.format(i),
-                                      update_index=False,
                                       site_id=settings.SITE_ID + 1)
             video.when_submitted = start + datetime.timedelta(i)
             video.save()

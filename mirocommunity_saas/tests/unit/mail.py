@@ -29,6 +29,7 @@ from mirocommunity_saas.utils.mail import (send_free_trial_ending,
 
 class MailTestCase(BaseTestCase):
     def setUp(self):
+        super(MailTestCase, self).setUp()
         site_settings = SiteSettings.objects.get_current()
         self.owner = self.create_user(username='superuser',
                                       email='superuser@localhost',
@@ -111,7 +112,7 @@ class MailTestCase(BaseTestCase):
                                           video_limit_warning_sent=last_sent,
                                           video_count_when_warned=7)
         for i in xrange(9):
-            self.create_video(name='video{0}'.format(i), update_index=False)
+            self.create_video(name='video{0}'.format(i))
 
         # Should send if all conditions are met.
         self.assertEqual(len(mail.outbox), 0)

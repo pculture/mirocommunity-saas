@@ -26,9 +26,20 @@ from mirocommunity_saas.models import Tier, SiteTierInfo
 
 
 class BaseTestCase(MCBaseTestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls._disable_index_updates()
+        super(BaseTestCase, cls).setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._enable_index_updates()
+        super(BaseTestCase, cls).tearDownClass()
+
     def setUp(self):
         super(BaseTestCase, self).setUp()
         SiteTierInfo.objects.clear_cache()
+        Theme.objects.clear_cache()
 
     def create_tier(self, name='Tier', slug='tier', **kwargs):
         return Tier.objects.create(name=name, slug=slug, **kwargs)
@@ -66,9 +77,12 @@ class BaseTestCase(MCBaseTestCase):
         return tier_info
 
     def create_theme(self, name='Test', site_id=settings.SITE_ID,
-                     description='Test description', **kwargs):
-        return Theme.objects.create(name=name, site_id=site_id,
-                                    description=description, **kwargs)
+                     description='Test description', default=False, **kwargs):
+        theme = Theme.objects.create(name=name, site_id=site_id,
+                                     description=description, **kwargs)
+        if default:
+            Theme.objects.set_default(theme)
+        return theme
 
     def create_ipn(self, ipaddress="", **kwargs):
         return PayPalIPN.objects.create(ipaddress=ipaddress, **kwargs)
