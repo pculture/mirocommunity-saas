@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
 import datetime
 from south.db import db
-from south.v2 import SchemaMigration
+from south.v2 import DataMigration
+from django.core.management import call_command
 from django.db import models
 
-
-class Migration(SchemaMigration):
+class Migration(DataMigration):
 
     def forwards(self, orm):
-        # Adding unique constraint on 'Tier', fields ['slug']
-        db.create_unique('mirocommunity_saas_tier', ['slug'])
+        "Write your forwards methods here."
+        call_command("loaddata", "tiers.json")
 
     def backwards(self, orm):
-        # Removing unique constraint on 'Tier', fields ['slug']
-        db.delete_unique('mirocommunity_saas_tier', ['slug'])
+        "Write your backwards methods here."
+        pass
 
     models = {
         'ipn.paypalipn': {
@@ -137,7 +137,8 @@ class Migration(SchemaMigration):
             'free_trial_ending_sent': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'ipn_set': ('django.db.models.fields.related.ManyToManyField', [], {'to': "orm['ipn.PayPalIPN']", 'symmetrical': 'False', 'blank': 'True'}),
-            'site': ('django.db.models.fields.related.OneToOneField', [], {'to': "orm['sites.Site']", 'unique': 'True'}),
+            'site': ('django.db.models.fields.related.OneToOneField', [], {'related_name': "'tier_info'", 'unique': 'True', 'to': "orm['sites.Site']"}),
+            'site_name': ('django.db.models.fields.CharField', [], {'max_length': '30', 'blank': 'True'}),
             'tier': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['mirocommunity_saas.Tier']"}),
             'tier_changed': ('django.db.models.fields.DateTimeField', [], {}),
             'video_count_when_warned': ('django.db.models.fields.PositiveIntegerField', [], {'null': 'True', 'blank': 'True'}),
@@ -167,3 +168,4 @@ class Migration(SchemaMigration):
     }
 
     complete_apps = ['mirocommunity_saas']
+    symmetrical = True

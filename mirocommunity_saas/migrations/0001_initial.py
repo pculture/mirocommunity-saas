@@ -12,7 +12,7 @@ class Migration(SchemaMigration):
         db.create_table('mirocommunity_saas_tier', (
             ('id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
             ('name', self.gf('django.db.models.fields.CharField')(max_length=30)),
-            ('slug', self.gf('django.db.models.fields.SlugField')(max_length=30)),
+            ('slug', self.gf('django.db.models.fields.SlugField')(unique=True, max_length=30)),
             ('price', self.gf('django.db.models.fields.PositiveIntegerField')(default=0)),
             ('admin_limit', self.gf('django.db.models.fields.PositiveIntegerField')(null=True, blank=True)),
             ('video_limit', self.gf('django.db.models.fields.PositiveIntegerField')(null=True, blank=True)),
@@ -27,7 +27,8 @@ class Migration(SchemaMigration):
         # Adding model 'SiteTierInfo'
         db.create_table('mirocommunity_saas_sitetierinfo', (
             ('id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
-            ('site', self.gf('django.db.models.fields.related.OneToOneField')(to=orm['sites.Site'], unique=True)),
+            ('site', self.gf('django.db.models.fields.related.OneToOneField')(related_name='tier_info', unique=True, to=orm['sites.Site'])),
+            ('site_name', self.gf('django.db.models.fields.CharField')(max_length=30, blank=True)),
             ('tier', self.gf('django.db.models.fields.related.ForeignKey')(to=orm['mirocommunity_saas.Tier'])),
             ('tier_changed', self.gf('django.db.models.fields.DateTimeField')()),
             ('enforce_payments', self.gf('django.db.models.fields.BooleanField')(default=False)),
@@ -189,7 +190,8 @@ class Migration(SchemaMigration):
             'free_trial_ending_sent': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'ipn_set': ('django.db.models.fields.related.ManyToManyField', [], {'to': "orm['ipn.PayPalIPN']", 'symmetrical': 'False', 'blank': 'True'}),
-            'site': ('django.db.models.fields.related.OneToOneField', [], {'to': "orm['sites.Site']", 'unique': 'True'}),
+            'site': ('django.db.models.fields.related.OneToOneField', [], {'related_name': "'tier_info'", 'unique': 'True', 'to': "orm['sites.Site']"}),
+            'site_name': ('django.db.models.fields.CharField', [], {'max_length': '30', 'blank': 'True'}),
             'tier': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['mirocommunity_saas.Tier']"}),
             'tier_changed': ('django.db.models.fields.DateTimeField', [], {}),
             'video_count_when_warned': ('django.db.models.fields.PositiveIntegerField', [], {'null': 'True', 'blank': 'True'}),
@@ -207,7 +209,7 @@ class Migration(SchemaMigration):
             'name': ('django.db.models.fields.CharField', [], {'max_length': '30'}),
             'newsletter': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'price': ('django.db.models.fields.PositiveIntegerField', [], {'default': '0'}),
-            'slug': ('django.db.models.fields.SlugField', [], {'max_length': '30'}),
+            'slug': ('django.db.models.fields.SlugField', [], {'unique': 'True', 'max_length': '30'}),
             'video_limit': ('django.db.models.fields.PositiveIntegerField', [], {'null': 'True', 'blank': 'True'})
         },
         'sites.site': {
