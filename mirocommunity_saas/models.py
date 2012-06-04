@@ -241,10 +241,13 @@ class SiteTierInfo(models.Model):
         return datetime.datetime.now() < end
 
     @property
-    def gets_free_trial(self):
+    def had_subscription(self):
         """
-        Returns ``True`` if the site has never had a subscription and
-        ``False`` otherwise.
+        Returns ``True`` if the site has ever had a subscription and ``False``
+        otherwise.
 
         """
-        return self.subscription[0] is None
+        return self.ipn_set.filter(flag=False,
+                                   txn_type__in=('subscr_signup',
+                                                 'subscr_modify')
+                          ).exists()
