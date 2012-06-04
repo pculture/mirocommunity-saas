@@ -15,3 +15,5 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 
+# Trigger tiers signal registration.
+from mirocommunity_saas import utils
