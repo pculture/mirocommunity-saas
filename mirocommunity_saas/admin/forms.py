@@ -276,7 +276,17 @@ class PayPalSubscriptionForm(PayPalPaymentsForm):
                                     domain=site.domain,
                                     url=reverse(self.return_url),
                                     query=urllib.urlencode(return_params))
-        initial = {
+        # This initial data says: A subscription for the ``RECEIVER_EMAIL``
+        # business with the tier's price, paid every thirty days. The
+        # subscription should recur indefinitely and payments should be
+        # retried if they fail. cancel_return is where they will be sent if
+        # they decide not to pay, or if this is a downgrade (the root of their
+        # site). return_url is where they will be sent if they decide to do
+        # the change and it's an upgrade (the TierChangeView). notify_url is
+        # where ipn notifications will be sent. For more information, see
+        # the IPN documentation:
+        # https://cms.paypal.com/cms_content/US/en_US/files/developer/PP_WebsitePaymentsStandard_IntegrationGuide.pdf
+        self.initial = {
             'cmd': '_xclick-subscriptions',
             'business': RECEIVER_EMAIL,
             # TODO: Should probably reference a url on the current site.
@@ -297,10 +307,14 @@ class PayPalSubscriptionForm(PayPalPaymentsForm):
                                    domain=site.domain),
         }
         if not tier_info.had_subscription:
-            initial.update({
+            # If they've never had a subscription before, we add a thirty-day
+            # free trial.
+            self.initial.update({
                 'a1': '0',
                 'p1': '30',
                 't1': 'D'
             })
         elif tier_info.subscription is not None:
-            initial['modify'] = '2'
+            # If they are currently subscribed, we only allow them to modify
+            # that subscription.
+            self.initial['modify'] = '2'
