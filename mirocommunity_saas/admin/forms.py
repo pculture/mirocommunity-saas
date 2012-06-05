@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 
+import datetime
 import urllib
 
 from django import forms
@@ -35,8 +36,9 @@ from paypal.standard.conf import (POSTBACK_ENDPOINT,
                                   RECEIVER_EMAIL)
 from paypal.standard.forms import PayPalPaymentsForm
 
-from mirocommunity_saas.models import SiteTierInfo
-from mirocommunity_saas.utils.tiers import make_tier_change_token
+from mirocommunity_saas.models import SiteTierInfo, Tier
+from mirocommunity_saas.utils.tiers import (make_tier_change_token,
+                                            check_tier_change_token)
 
 
 class EditSettingsForm(_EditSettingsForm):
@@ -193,14 +195,40 @@ class TierChangeForm(forms.Form):
     action = reverse_lazy('localtv_admin_tier_change')
     method = "post"
 
-    tier = forms.SlugField(widget=forms.HiddenInput)
-    s = forms.CharField(widget=forms.HiddenInput)
+    tier = forms.models.ModelChoiceField(queryset=Tier.objects.all(),
+                                         widget=forms.HiddenInput,
+                                         to_field_name='slug')
+    token = forms.CharField(widget=forms.HiddenInput)
 
-    def __init__(self, tier, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super(TierChangeForm, self).__init__(*args, **kwargs)
-        self.tier = tier
-        self.initial['tier'] = tier.slug
-        self.initial['s'] = make_tier_change_token(tier)
+        self.tier_info = SiteTierInfo.objects.get_current()
+        self.fields['tier'].queryset = self.tier_info.available_tiers.all()
+        if 'tier' in self.initial:
+            self.initial['token'] = make_tier_change_token(
+                                                         self.initial['tier'])
+
+    def clean_tier(self):
+        tier = self.cleaned_data['tier']
+        if tier == self.tier_info.tier:
+            raise ValidationError("Selected tier is the current tier.")
+        return tier
+
+    def clean(self):
+        if self.errors:
+            # If there are already errors, we can't continue with this part
+            # of the validation.
+            return self.cleaned_data
+        token = self.cleaned_data['token']
+        tier = self.cleaned_data['tier']
+        if not check_tier_change_token(tier, token):
+            raise ValidationError("Invalid tier change token.")
+        return self.cleaned_data
+
+    def save(self):
+        self.tier_info.tier = self.cleaned_data['tier']
+        self.tier_info.tier_changed = datetime.datetime.now()
+        self.tier_info.save()
 
 
 class PayPalCancellationForm(forms.Form):
@@ -243,10 +271,7 @@ class PayPalSubscriptionForm(PayPalPaymentsForm):
         if tier.price < tier_info.tier.price:
             return_url = cancel_return
         else:
-            return_params = {
-                'tier': tier.slug,
-                's': make_tier_change_token(tier)
-            }
+            return_params = TierChangeForm(initial={'tier': tier}).initial
             return_url = 'http://{domain}{url}?{query}'.format(
                                     domain=site.domain,
                                     url=reverse(self.return_url),

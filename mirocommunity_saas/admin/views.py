@@ -15,7 +15,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 
-import datetime
 import math
 
 from django.core.urlresolvers import reverse
@@ -76,7 +75,7 @@ class TierView(TemplateView):
                 if tier_info.enforce_payments:
                     forms[tier] = PayPalSubscriptionForm(tier)
                 else:
-                    forms[tier] = TierChangeForm(tier)
+                    forms[tier] = TierChangeForm(initial={'tier': tier})
 
         context.update({
             'forms': forms,
@@ -106,11 +105,11 @@ class DowngradeConfirmationView(TemplateView):
                 else:
                     # If they don't have an active subscription, we can't very
                     # well cancel it.
-                    form = TierChangeForm(tier)
+                    form = TierChangeForm(initial={'tier': tier})
             else:
                 form = PayPalSubscriptionForm(tier)
         else:
-            form = TierChangeForm(tier)
+            form = TierChangeForm(initial={'tier': tier})
         context.update({
             'form': form,
             'tier': tier,
@@ -135,31 +134,15 @@ class TierChangeView(View):
         """
         return HttpResponseRedirect(reverse('localtv_admin_tier'))
 
-    def change_tier(self, slug, token):
-        tier_info = SiteTierInfo.objects.get_current()
-        try:
-            tier = tier_info.available_tiers.get(slug=slug)
-        except Tier.DoesNotExist:
-            return
-
-        if tier_info.tier_id == tier.pk:
-            return
-
-        if not check_tier_change_token(tier, token):
-            return
-
-        tier_info.tier = tier
-        tier_info.tier_changed = datetime.datetime.now()
-        tier_info.save()
+    def handle_form(self, data):
+        form = TierChangeForm(data)
+        if form.is_valid():
+            form.save()
 
     def get(self, request, *args, **kwargs):
-        slug = request.GET.get('tier', '')
-        token = request.GET.get('s', '')
-        self.change_tier(slug, token)
+        self.handle_form(request.GET)
         return self.finished()
 
     def post(self, request, *args, **kwargs):
-        slug = request.POST.get('tier', '')
-        token = request.POST.get('s', '')
-        self.change_tier(slug, token)
+        self.handle_form(request.POST)
         return self.finished()

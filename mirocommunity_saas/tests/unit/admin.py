@@ -237,95 +237,70 @@ class DowngradeConfirmationViewUnitTestCase(BaseTestCase):
 
 
 class TierChangeViewTestCase(BaseTestCase):
-    def setUp(self):
-        super(TierChangeViewTestCase, self).setUp()
-        self.tier1 = self.create_tier(name='Tier1', slug='tier1', price=10)
-        self.tier2 = self.create_tier(name='Tier2', slug='tier2', price=20)
-        self.tier_changed = datetime.datetime.now()
-        self.tier_info = self.create_tier_info(self.tier2,
-                                               available_tiers=[self.tier1],
-                                               tier_changed=self.tier_changed)
-
-    def test_change_tier__bad_slug(self):
+    def test_handle_form__valid(self):
         """
-        If the slug given doesn't refer to an available tier, do nothing.
+        The handle form method should instantiate a TierChangeForm and, if
+        it's valid, save it.
 
         """
-        tier3 = self.create_tier(name='Tier3', slug='tier3', price=30)
-        token = make_tier_change_token(tier3)
+        tier = self.create_tier()
+        self.create_tier_info(tier)
         view = TierChangeView()
-        view.change_tier(tier3.slug, token)
-        self.assertEqual(self.tier_info.tier, self.tier2)
-        self.assertEqual(self.tier_info.tier_changed, self.tier_changed)
+        with mock.patch.object(TierChangeForm, 'is_valid',
+                               return_value=True) as is_valid:
+            with mock.patch.object(TierChangeForm, 'save') as save:
+                view.handle_form({'key': 'value'})
+                self.assertTrue(is_valid.called)
+                self.assertTrue(save.called)
 
-    def test_change_tier__same_id(self):
+    def test_handle_form__invalid(self):
         """
-        If the tier we're changing to is the same as the current tier, do
-        nothing.
+        The handle form method should instantiate a TierChangeForm and, if
+        it's invalid, not save it.
 
         """
-        token = make_tier_change_token(self.tier2)
+        tier = self.create_tier()
+        self.create_tier_info(tier)
         view = TierChangeView()
-        view.change_tier(self.tier2.slug, token)
-        self.assertEqual(self.tier_info.tier, self.tier2)
-        self.assertEqual(self.tier_info.tier_changed, self.tier_changed)
-
-    def test_change_tier__bad_token(self):
-        """
-        If the token is invalid, do nothing.
-
-        """
-        token = ''
-        view = TierChangeView()
-        view.change_tier(self.tier1.slug, token)
-        self.assertEqual(self.tier_info.tier, self.tier2)
-        self.assertEqual(self.tier_info.tier_changed, self.tier_changed)
-
-    def test_change_tier(self):
-        """
-        If everything is right, the tier should be changed and the
-        tier_changed date should be set.
-
-        """
-        token = make_tier_change_token(self.tier1)
-        view = TierChangeView()
-        view.change_tier(self.tier1.slug, token)
-        self.assertEqual(self.tier_info.tier, self.tier1)
-        self.assertNotEqual(self.tier_info.tier_changed, self.tier_changed)
+        with mock.patch.object(TierChangeForm, 'is_valid',
+                               return_value=False) as is_valid:
+            with mock.patch.object(TierChangeForm, 'save') as save:
+                view.handle_form({'key': 'value'})
+                self.assertTrue(is_valid.called)
+                self.assertFalse(save.called)
 
     def test_get(self):
         """
-        Calling get should take the slug and token out of the GET params and
-        pass them to change_tier, then return the result of the finished()
-        method.
+        The get method should pass the GET data to the handle_form method,
+        then return the result of the finished() method.
 
         """
         view = TierChangeView()
-        request = self.factory.get('/', {'tier': 'tier1', 's': 'token'})
+        data = {'key': 'value', 'token': 'token'}
+        request = self.factory.get('/', data)
         return_value = object()
-        with mock.patch.object(view, 'change_tier') as change_tier:
+        with mock.patch.object(view, 'handle_form') as handle_form:
             with mock.patch.object(view, 'finished',
                                    return_value=return_value) as finished:
                 response = view.get(request)
-                change_tier.assert_called_with('tier1', 'token')
+                handle_form.assert_called_with(request.GET)
                 finished.assert_called_with()
                 self.assertEqual(response, return_value)
 
     def test_post(self):
         """
-        Calling post should take the slug and token out of the POST data and
-        pass them to change_tier, then return the result of the finished()
-        method.
+        The post method should pass the POST data to the handle_form method,
+        then return the result of the finished() method.
 
         """
         view = TierChangeView()
-        request = self.factory.post('/', {'tier': 'tier1', 's': 'token'})
+        request = self.factory.post('/', {'tier': 'tier1', 'key': 'value'})
         return_value = object()
-        with mock.patch.object(view, 'change_tier') as change_tier:
+        with mock.patch.object(view, 'handle_form') as handle_form:
             with mock.patch.object(view, 'finished',
                                    return_value=return_value) as finished:
                 response = view.post(request)
-                change_tier.assert_called_with('tier1', 'token')
+                handle_form.assert_called_with(request.POST)
                 finished.assert_called_with()
                 self.assertEqual(response, return_value)
 
@@ -333,3 +308,73 @@ class TierChangeViewTestCase(BaseTestCase):
         """The finished method should return a redirect to the tier index."""
         response = TierChangeView().finished()
         self.assertRedirects(response, '/admin/upgrade/', '')
+
+
+class TierChangeFormTestCase(BaseTestCase):
+    def setUp(self):
+        super(TierChangeFormTestCase, self).setUp()
+        self.tier1 = self.create_tier(name='Tier1', slug='tier1', price=10)
+        self.tier2 = self.create_tier(name='Tier2', slug='tier2', price=20)
+        self.tier_changed = datetime.datetime.now()
+        self.tier_info = self.create_tier_info(self.tier2,
+                                               available_tiers=[self.tier1],
+                                               tier_changed=self.tier_changed)
+
+    def test_bad_slug(self):
+        """
+        The form should be invalid if the slug given doesn't refer to an
+        available tier.
+
+        """
+        tier3 = self.create_tier(name='Tier3', slug='tier3', price=30)
+        token = make_tier_change_token(tier3)
+        form = TierChangeForm({'tier': tier3.slug, 'token': token})
+        self.assertFalse(form.is_valid())
+        self.assertEqual(form.errors.keys(), ['tier'])
+
+    def test_same_tier(self):
+        """
+        The form should be invalid if the tier we're changing to is the same
+        as the current tier.
+
+        """
+        self.assertEqual(self.tier_info.tier, self.tier2)
+        token = make_tier_change_token(self.tier2)
+        form = TierChangeForm({'tier': self.tier2.slug, 'token': token})
+        self.assertFalse(form.is_valid())
+        self.assertEqual(form.errors.keys(), ['tier'])
+
+    def test_bad_token(self):
+        """
+        The form should be invalid if the token is invalid.
+
+        """
+        self.assertNotEqual(self.tier_info.tier, self.tier1)
+        token = 'not_a_token'
+        form = TierChangeForm({'tier': self.tier1.slug, 'token': token})
+        self.assertFalse(form.is_valid())
+        self.assertEqual(form.errors.keys(), ['__all__'])
+
+    def test_valid(self):
+        """
+        If everything is right, the form should come back valid.
+
+        """
+        token = make_tier_change_token(self.tier1)
+        form = TierChangeForm({'tier': self.tier1.slug, 'token': token})
+        self.assertTrue(form.is_valid())
+
+    def test_save(self):
+        """
+        Saving the form should update the last tier changed date and actually
+        change the tier.
+
+        """
+        token = make_tier_change_token(self.tier1)
+        form = TierChangeForm({'tier': self.tier1.slug, 'token': token})
+        self.assertTrue(form.is_valid())
+        self.assertEqual(self.tier_info.tier, self.tier2)
+        old_tier_changed = self.tier_info.tier_changed
+        form.save()
+        self.assertEqual(self.tier_info.tier, self.tier1)
+        self.assertGreater(self.tier_info.tier_changed, old_tier_changed)
