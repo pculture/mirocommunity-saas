@@ -95,7 +95,6 @@ class SiteTierInfo(models.Model):
     enforce_payments = models.BooleanField(default=False)
 
     #: The datetime when the welcome email was sent to this site's owner.
-    #: TODO: is this really a tiers issue?
     welcome_email_sent = models.DateTimeField(blank=True, null=True)
 
     #: The datetime when a "free trial ending" email was sent to the site's
