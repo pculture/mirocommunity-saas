@@ -74,27 +74,51 @@ class NewsletterTestCase(BaseTestCase):
 
 
 class SettingsFormTestCase(BaseTestCase):
-    def test_settings_form(self):
+    def test_no_custom(self):
         """
-        The settings form shouldn't allow css to be submitted if it's
-        disallowed.
+        The settings form should be invalid if css is disallowed, but is
+        submitted anyway, and if that css doesn't match what's set already.
 
         """
-        site_settings = SiteSettings.objects.get_current()
-        data = {'css': 'hi'}
         tier = self.create_tier(custom_css=False)
         self.create_tier_info(tier)
 
+        data = {'css': 'foo'}
+        site_settings = SiteSettings.objects.get_current()
+        site_settings.css = 'bar'
         form = EditSettingsForm(data, instance=site_settings)
         form.cleaned_data = data
         self.assertRaises(ValidationError, form.clean_css)
+        self.assertEqual(form.data['css'], site_settings.css)
 
-        form.instance.css = data['css']
+    def test_no_custom__match(self):
+        """
+        Even if custom css isn't allowed, we do let it through if it matches
+        the css that is already stored.
+
+        """
+        tier = self.create_tier(custom_css=False)
+        self.create_tier_info(tier)
+
+        data = {'css': 'foo'}
+        site_settings = SiteSettings.objects.get_current()
+        site_settings.css = data['css']
+        form = EditSettingsForm(data, instance=site_settings)
+        form.cleaned_data = data
         self.assertEqual(form.clean_css(), data['css'])
 
-        tier.custom_css = True
-        tier.save()
+    def test_custom(self):
+        """
+        If custom css is allowed, changes to the css don't raise a validation
+        error.
 
+        """
+        tier = self.create_tier(custom_css=True)
+        self.create_tier_info(tier)
+
+        data = {'css': 'foo'}
+        site_settings = SiteSettings.objects.get_current()
+        site_settings.css = 'bar'
         form = EditSettingsForm(data, instance=site_settings)
         form.cleaned_data = data
         self.assertEqual(form.clean_css(), data['css'])

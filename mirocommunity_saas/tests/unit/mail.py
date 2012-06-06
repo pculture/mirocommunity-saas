@@ -43,6 +43,9 @@ class MailTestCase(BaseTestCase):
         self.admin = self.create_user(username='admin',
                                       email='admin@localhost')
         site_settings.admins.add(self.admin)
+        # Creating users sends welcome emails, so we need to explicitly reset
+        # the mail outbox here.
+        mail.outbox = []
 
     def test_free_trial_ending__sent(self):
         """

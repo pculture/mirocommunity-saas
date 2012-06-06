@@ -26,6 +26,8 @@ from mirocommunity_saas.models import Tier, SiteTierInfo
 
 
 class BaseTestCase(MCBaseTestCase):
+    urls = 'mirocommunity_saas.urls'
+
     @classmethod
     def setUpClass(cls):
         cls._disable_index_updates()
