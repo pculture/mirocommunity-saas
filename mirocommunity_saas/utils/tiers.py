@@ -45,7 +45,8 @@ def admins_to_demote(tier):
         return []
 
     site_settings = SiteSettings.objects.get_current()
-    admins = site_settings.admins.exclude(is_superuser=True, is_active=True)
+    admins = site_settings.admins.exclude(is_superuser=True
+                                ).exclude(is_active=False)
     # If the number of admins is already below the limit, we're done.
     demotee_count = admins.count() - tier.admin_limit
     if demotee_count <= 0:

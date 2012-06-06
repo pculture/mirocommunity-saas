@@ -253,16 +253,22 @@ class EnforcementTestCase(BaseTestCase):
     def test_admins_to_demote(self):
         tier1 = self.create_tier(slug='tier1', admin_limit=None)
         tier2 = self.create_tier(slug='tier2', admin_limit=100)
-        tier3 = self.create_tier(slug='tier3', admin_limit=1)
-        admin1 = self.create_user(username='admin1', password='admin1')
-        admin2 = self.create_user(username='admin2', password='admin2')
+        tier3 = self.create_tier(slug='tier3', admin_limit=2)
+        tier4 = self.create_tier(slug='tier4', admin_limit=1)
+        admin1 = self.create_user(username='admin1')
+        admin2 = self.create_user(username='admin2')
+        inactive_admin = self.create_user(username='admin3', is_active=False)
+        superuser = self.create_user(username='superuser', is_superuser=True)
         site_settings = SiteSettings.objects.get_current()
         site_settings.admins.add(admin1)
         site_settings.admins.add(admin2)
+        site_settings.admins.add(inactive_admin)
+        site_settings.admins.add(superuser)
 
         self.assertEqual(admins_to_demote(tier1), [])
         self.assertEqual(admins_to_demote(tier2), [])
-        self.assertEqual(admins_to_demote(tier3), [admin2])
+        self.assertEqual(admins_to_demote(tier3), [])
+        self.assertEqual(admins_to_demote(tier4), [admin2])
 
     def test_videos_to_deactivate(self):
         tier1 = self.create_tier(slug='tier1', video_limit=None)
