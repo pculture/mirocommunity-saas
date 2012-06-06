@@ -102,7 +102,8 @@ def enforce_tier(tier):
     if (not tier.custom_domain and
         not site.domain.endswith(".mirocommunity.org")):
         send_mail('mirocommunity_saas/mail/disable_domain/subject.txt',
-                  'mirocommunity_saas/mail/disable_domain/body.md')
+                  'mirocommunity_saas/mail/disable_domain/body.md',
+                  to=settings.MANAGERS)
         tier_info = SiteTierInfo.objects.get_current()
         if tier_info.site_name:
             site.domain = "{0}.mirocommunity.org".format(tier_info.site_name)
@@ -194,21 +195,25 @@ def set_tier_by_payment(payment):
         try:
             new_tier = tier_info.available_tiers.get(price=payment)
         except Tier.DoesNotExist:
-            # Email the site devs to let them know we got a payment for a tier
-            # that doesn't seem to exist, and stop processing immediately.
+            # Email the site managers to let them know we got a payment for a
+            # tier that doesn't seem to exist, and stop processing
+            # immediately.
             send_mail('mirocommunity_saas/mail/invalid_payment/subject.txt',
                       'mirocommunity_saas/mail/invalid_payment/body.md',
+                      to=settings.MANAGERS,
                       extra_context={
                         'not_found': True,
                         'payment': payment,
                       })
             return
         except Tier.MultipleObjectsReturned:
-            # Email the site devs to let them know we got an ambiguous payment
-            # and stop processing immediately. At the moment, no ambiguous
-            # payments are possible, but we should still catch the case.
+            # Email the site managers to let them know we got an ambiguous
+            # payment and stop processing immediately. At the moment, no
+            # ambiguous payments are possible, but we should still catch the
+            # case.
             send_mail('mirocommunity_saas/mail/invalid_payment/subject.txt',
                       'mirocommunity_saas/mail/invalid_payment/body.md',
+                      to=settings.MANAGERS,
                       extra_context={
                         'multiple_found': True,
                         'payment': payment,
@@ -221,6 +226,7 @@ def set_tier_by_payment(payment):
         # Email site devs to let them know about the change.
         send_mail('mirocommunity_saas/mail/tier_change/dev_subject.txt',
                   'mirocommunity_saas/mail/tier_change/dev_body.md',
+                  to=settings.MANAGERS,
                   extra_context={
                     'old_tier': tier,
                     'payment': payment,

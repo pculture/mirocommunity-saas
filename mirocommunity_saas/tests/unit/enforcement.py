@@ -283,7 +283,7 @@ class EnforcementTestCase(BaseTestCase):
         self.assertEqual(videos_to_deactivate(tier3), [])
         self.assertEqual(videos_to_deactivate(tier4), [video1])
 
-    @override_settings(ADMINS=(('Admin1', 'admin@localhost'),))
+    @override_settings(MANAGERS=(('Manager', 'manager@localhost'),))
     def test_enforce_tier(self):
         """
         Tests that enforcing a tier demotes extra admins, deactivates extra
@@ -337,7 +337,7 @@ class EnforcementTestCase(BaseTestCase):
                          set(videos[1:]))
         self.assertRaises(Theme.DoesNotExist, Theme.objects.get_default)
         self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].to, ['admin@localhost'])
+        self.assertEqual(mail.outbox[0].to, ['manager@localhost'])
         self.assertEqual(Site.objects.get_current().domain,
                          'test.mirocommunity.org')
 

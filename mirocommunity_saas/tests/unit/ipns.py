@@ -32,7 +32,7 @@ from mirocommunity_saas.utils.tiers import (set_tier_by_payment,
                                             record_new_ipn)
 
 
-@override_settings(ADMINS=(('Admin', 'admin@localhost'),))
+@override_settings(MANAGERS=(('Manager', 'manager@localhost'),))
 class SetTierByPaymentTestCase(BaseTestCase):
     def setUp(self):
         super(SetTierByPaymentTestCase, self).setUp()
@@ -71,7 +71,7 @@ class SetTierByPaymentTestCase(BaseTestCase):
         set_tier_by_payment(tier.price)
 
         self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].to, ['admin@localhost'])
+        self.assertEqual(mail.outbox[0].to, ['manager@localhost'])
         self.assertEqual(self.tier_info.tier, tier)
         self._enforce_tier.assert_called_with(tier)
 
@@ -87,7 +87,7 @@ class SetTierByPaymentTestCase(BaseTestCase):
         set_tier_by_payment(40)
 
         self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].to, ['admin@localhost'])
+        self.assertEqual(mail.outbox[0].to, ['manager@localhost'])
         self.assertEqual(self.tier_info.tier, tier)
         self.assertFalse(self._enforce_tier.called)
 
@@ -97,7 +97,7 @@ class SetTierByPaymentTestCase(BaseTestCase):
         set_tier_by_payment(30)
 
         self.assertEqual(len(mail.outbox), 2)
-        self.assertEqual(mail.outbox[0].to, ['admin@localhost'])
+        self.assertEqual(mail.outbox[0].to, ['manager@localhost'])
         self.assertEqual(self.tier_info.tier, tier)
         self.assertFalse(self._enforce_tier.called)
 

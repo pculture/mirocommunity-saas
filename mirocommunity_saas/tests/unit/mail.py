@@ -43,15 +43,17 @@ class MailTestCase(BaseTestCase):
         self.admin = self.create_user(username='admin',
                                       email='admin@localhost')
         site_settings.admins.add(self.admin)
-        mail.outbox = []
 
-    def test_free_trial_ending(self):
+    def test_free_trial_ending__sent(self):
+        """
+        If the free trial ending warning was already sent, we shouldn't send
+        it again, even if all other conditions are met.
+
+        """
         now = datetime.datetime.now()
         tier = self.create_tier()
         tier_info = self.create_tier_info(tier, free_trial_ending_sent=now)
 
-        # Shouldn't send if it's already been sent, even if all other
-        # conditions are met.
         trial_end = now + datetime.timedelta(2)
         self.assertEqual(len(mail.outbox), 0)
         with mock.patch.object(tier_info, 'get_free_trial_end',
@@ -59,32 +61,67 @@ class MailTestCase(BaseTestCase):
            send_free_trial_ending()
         self.assertEqual(len(mail.outbox), 0)
 
-        # Shouldn't send if it's not in the right timespan, even if all other
-        # conditions are met.
-        tier_info.free_trial_ending_sent = None
-        tier_info.save()
-        trial_end = now + datetime.timedelta(7)
+    def test_free_trial_ending__early(self):
+        """
+        If we're before the warning period, the free trial ending warning
+        shouldn't be sent, even if all other conditions are met.
+
+        """
+        tier = self.create_tier()
+        tier_info = self.create_tier_info(tier)
+
+        trial_end = datetime.datetime.now() + datetime.timedelta(7)
+        self.assertEqual(len(mail.outbox), 0)
         with mock.patch.object(tier_info, 'get_free_trial_end',
                               return_value=trial_end):
            send_free_trial_ending()
         self.assertEqual(len(mail.outbox), 0)
 
-        # Shouldn't send if they aren't in a free trial, even if all other
-        # conditions are met.
+    def test_free_trial_ending__late(self):
+        """
+        If we're past the warning period, the free trial ending warning
+        shouldn't be sent, even if all other conditions are met.
+
+        """
+        tier = self.create_tier()
+        tier_info = self.create_tier_info(tier)
+
+        trial_end = datetime.datetime.now() - datetime.timedelta(2)
+        self.assertEqual(len(mail.outbox), 0)
+        with mock.patch.object(tier_info, 'get_free_trial_end',
+                              return_value=trial_end):
+           send_free_trial_ending()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_free_trial_ending__no_free_trial(self):
+        """
+        If they're not in a free trial, the ending warning shouldn't be sent.
+
+        """
+        tier = self.create_tier()
+        tier_info = self.create_tier_info(tier)
+
+        self.assertEqual(len(mail.outbox), 0)
         with mock.patch.object(tier_info, 'get_free_trial_end',
                               return_value=None):
            send_free_trial_ending()
         self.assertEqual(len(mail.outbox), 0)
 
-        # Should send if all conditions are met.
-        trial_end = now + datetime.timedelta(2)
+    def test_free_trial_ending(self):
+        """
+        If all conditions are met, the site owner(s) should be emailed.
+
+        """
+        tier = self.create_tier()
+        tier_info = self.create_tier_info(tier)
+
+        trial_end = datetime.datetime.now() + datetime.timedelta(2)
+        self.assertEqual(len(mail.outbox), 0)
         with mock.patch.object(tier_info, 'get_free_trial_end',
                                return_value=trial_end):
             send_free_trial_ending()
         self.assertEqual(len(mail.outbox), 1)
         self.assertTrue(tier_info.free_trial_ending_sent)
-
-        # Make sure that the right people were emailed.
         self.assertEqual(mail.outbox[0].to, [self.owner.email])
 
     def test_welcome_email(self):
@@ -104,103 +141,190 @@ class MailTestCase(BaseTestCase):
         self.assertTrue(tier_info.welcome_email_sent)
         self.assertEqual(mail.outbox[0].to, [self.owner.email])
 
-    def test_video_limit_warning(self):
-        now = datetime.datetime.now()
+
+class VideoLimitWarningTestCase(BaseTestCase):
+    def setUp(self):
+        self.create_user(email='superuser@localhost', is_superuser=True)
+        BaseTestCase.setUp(self)
+
+    def test_initial_warning(self):
+        """
+        If the site is getting close to its video limit and the warning hasn't
+        been sent before, it should be sent.
+
+        """
         tier = self.create_tier(video_limit=10)
-        last_sent = now - datetime.timedelta(10)
+        tier_info = self.create_tier_info(tier)
+        for i in xrange(7):
+            self.create_video(name='video{0}'.format(i))
+
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertTrue(tier_info.video_count_when_warned is None)
+        self.assertTrue(tier_info.video_limit_warning_sent is None)
+        send_video_limit_warning()
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(tier_info.video_count_when_warned, 7)
+        self.assertTrue(tier_info.video_limit_warning_sent)
+
+    def test_followup_warning(self):
+        """
+        If the site is getting closer to its video limit after an initial
+        warning, an email should be sent.
+
+        """
+        last_sent = datetime.datetime.now() - datetime.timedelta(10)
+        tier = self.create_tier(video_limit=10)
         tier_info = self.create_tier_info(tier,
-                                          video_limit_warning_sent=last_sent,
-                                          video_count_when_warned=7)
+                                          video_count_when_warned=7,
+                                          video_limit_warning_sent=last_sent)
         for i in xrange(9):
             self.create_video(name='video{0}'.format(i))
 
-        # Should send if all conditions are met.
         self.assertEqual(len(mail.outbox), 0)
         send_video_limit_warning()
         self.assertEqual(len(mail.outbox), 1)
-        self.assertGreater(tier_info.video_limit_warning_sent, last_sent)
-        self.assertEqual(mail.outbox[0].to, [self.owner.email])
         self.assertEqual(tier_info.video_count_when_warned, 9)
-        mail.outbox = []
+        self.assertGreater(tier_info.video_limit_warning_sent, last_sent)
 
-        # Shouldn't send if it's been sent recently, even if all other
-        # conditions are met.
-        tier_info.video_count_when_warned = 7
-        tier_info.save()
+    def test_followup_warning__decrease(self):
+        """
+        If the site has fewer videos than when it was last warned, no email
+        should be sent, and the new count should be recorded.
+
+        """
+        last_sent = datetime.datetime.now() - datetime.timedelta(10)
+        tier = self.create_tier(video_limit=10)
+        tier_info = self.create_tier_info(tier,
+                                          video_count_when_warned=8,
+                                          video_limit_warning_sent=last_sent)
+        for i in xrange(7):
+            self.create_video(name='video{0}'.format(i))
+
         self.assertEqual(len(mail.outbox), 0)
         send_video_limit_warning()
         self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual(tier_info.video_count_when_warned, 7)
+        self.assertEqual(tier_info.video_limit_warning_sent, last_sent)
 
-        # Shouldn't send if there is no limit, even if all other conditions
-        # are met.
-        tier.video_limit = None
-        tier.save()
-        tier_info.video_limit_warning_sent = last_sent
-        tier_info.save()
+    def test_followup_warning__small_increase(self):
+        """
+        If the number of videos has increased (but not significantly) since
+        the last warning, no email should be sent, and the old count should be
+        preserved.
+
+        """
+        last_sent = datetime.datetime.now() - datetime.timedelta(10)
+        tier = self.create_tier(video_limit=10)
+        tier_info = self.create_tier_info(tier,
+                                          video_count_when_warned=7,
+                                          video_limit_warning_sent=last_sent)
+        for i in xrange(8):
+            self.create_video(name='video{0}'.format(i))
+
+        self.assertEqual(len(mail.outbox), 0)
         send_video_limit_warning()
         self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual(tier_info.video_count_when_warned, 7)
+        self.assertEqual(tier_info.video_limit_warning_sent, last_sent)
 
-        # Shouldn't send if the number of videos is too close to the last
-        # count.
-        for video in Video.objects.all()[7:]:
-            video.delete()
-        # Typo check/added clarity
-        self.assertEqual(tier_info.video_count_when_warned,
-                         Video.objects.count())
-        tier.video_limit = 10
-        tier.save()
+    def test_below_ratio(self):
+        """
+        If the site is below the warning ratio, the email shouldn't be sent,
+        and any previous video counts should be forgotten.
+
+        """
+        last_sent = datetime.datetime.now() - datetime.timedelta(10)
+        tier = self.create_tier(video_limit=10)
+        tier_info = self.create_tier_info(tier,
+                                          video_count_when_warned=7,
+                                          video_limit_warning_sent=last_sent)
+        for i in xrange(3):
+            self.create_video(name='video{0}'.format(i))
+
+        self.assertEqual(len(mail.outbox), 0)
         send_video_limit_warning()
         self.assertEqual(len(mail.outbox), 0)
+        self.assertTrue(tier_info.video_count_when_warned is None)
+        self.assertEqual(tier_info.video_limit_warning_sent, last_sent)
 
-        # Should send if the number of videos is high enough and it's never
-        # been sent before.
-        tier_info.video_count_when_warned = None
-        tier_info.save()
-        send_video_limit_warning()
-        self.assertEqual(len(mail.outbox), 1)
-        tier_info.video_limit_warning_sent = last_sent
-        tier_info.save()
-        mail.outbox = []
+    def test_no_limit(self):
+        """
+        If there is no video limit, then no email should be sent.
 
-        # Shouldn't send if there aren't enough videos, even if all other
-        # conditions are met.
-        for video in Video.objects.all()[6:]:
-            video.delete()
+        """
+        tier = self.create_tier(video_limit=None)
+        tier_info = self.create_tier_info(tier)
+        for i in xrange(7):
+            self.create_video(name='video{0}'.format(i))
+
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertTrue(tier_info.video_count_when_warned is None)
+        self.assertTrue(tier_info.video_limit_warning_sent is None)
         send_video_limit_warning()
         self.assertEqual(len(mail.outbox), 0)
+        self.assertTrue(tier_info.video_count_when_warned is None)
+        self.assertTrue(tier_info.video_limit_warning_sent is None)
 
-    def test_free_trial_ending__command(self):
+    def test_zero_limit(self):
+        """
+        If the limit is set to 0, then no email should be sent.
+
+        """
+        tier = self.create_tier(video_limit=0)
+        tier_info = self.create_tier_info(tier)
+
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertTrue(tier_info.video_count_when_warned is None)
+        self.assertTrue(tier_info.video_limit_warning_sent is None)
+        send_video_limit_warning()
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertTrue(tier_info.video_count_when_warned is None)
+        self.assertTrue(tier_info.video_limit_warning_sent is None)
+
+    def test_sent_recently(self):
+        """
+        If a warning email was sent recently, a new email shouldn't be sent.
+
+        """
+        last_sent = datetime.datetime.now()
+        tier = self.create_tier(video_limit=10)
+        tier_info = self.create_tier_info(tier,
+                                          video_limit_warning_sent=last_sent)
+        for i in xrange(7):
+            self.create_video(name='video{0}'.format(i))
+
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertTrue(tier_info.video_count_when_warned is None)
+        send_video_limit_warning()
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertTrue(tier_info.video_count_when_warned is None)
+        self.assertEqual(tier_info.video_limit_warning_sent, last_sent)
+
+
+class MailCommandTestCase(BaseTestCase):
+    def test_free_trial_ending(self):
         """Tests that the command calls the send_free_trial_ending utility."""
-        self.called = False
-        def mark_called():
-            self.called = True
         with mock.patch('mirocommunity_saas.management.commands.'
-                        'send_free_trial_ending.send_free_trial_ending',
-                        mark_called):
+                        'send_free_trial_ending.send_free_trial_ending'
+                        ) as send_free_trial_ending:
             management.call_command('send_free_trial_ending')
-        self.assertTrue(self.called)
+            send_free_trial_ending.assert_called_with()
 
     def test_video_limit_warning__command(self):
         """
         Tests that the command calls the send_video_limit_warning utility.
 
         """
-        self.called = False
-        def mark_called():
-            self.called = True
         with mock.patch('mirocommunity_saas.management.commands.'
-                        'send_video_limit_warning.send_video_limit_warning',
-                        mark_called):
+                        'send_video_limit_warning.send_video_limit_warning'
+                        ) as send_video_limit_warning:
             management.call_command('send_video_limit_warning')
-        self.assertTrue(self.called)
+            send_video_limit_warning.assert_called_with()
 
     def test_welcome_email__command(self):
         """Tests that the command calls the send_welcome_email utility."""
-        self.called = False
-        def mark_called():
-            self.called = True
         with mock.patch('mirocommunity_saas.management.commands.'
-                        'send_welcome_email.send_welcome_email',
-                        mark_called):
+                        'send_welcome_email.send_welcome_email'
+                        ) as send_welcome_email:
             management.call_command('send_welcome_email')
-        self.assertTrue(self.called)
+            send_welcome_email.assert_called_with()

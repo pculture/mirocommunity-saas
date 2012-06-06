@@ -20,7 +20,7 @@ import markdown
 
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.core.mail import EmailMultiAlternatives
+from django.core.mail import EmailMultiAlternatives, get_connection
 from django.template.defaultfilters import striptags
 from django.template import Context, loader
 from localtv.models import Video
@@ -56,7 +56,7 @@ def render_to_email(subject_template, body_template, context, to, from_email):
     return msg
 
 
-def send_mail(subject_template_name, body_template_name, users=None,
+def send_mail(subject_template_name, body_template_name, to,
               from_email=None, extra_context=None, fail_silently=False):
     """
     Send mail to the given users (or to the site devs if no users are
@@ -75,8 +75,8 @@ def send_mail(subject_template_name, body_template_name, users=None,
     :param body_template_name: This should be the name of a template for the
                                body text. After the template is rendered, it
                                will be passed through a markdown filter.
-    :param users: An iterable of users to email, or ``None`` to email the
-                  site devs (according to the ``ADMINS`` setting.)
+    :param to: An iterable of users and/or (name, email) tuples (such as are
+               used for the ``ADMINS`` and ``MANAGERS`` settings) to email.
     :param from_email: The email these messages should be sent from, or
                        ``None`` to use the ``DEFAULT_FROM_EMAIL`` setting.
     :param extra_context: Additional context variables for the templates;
@@ -96,22 +96,27 @@ def send_mail(subject_template_name, body_template_name, users=None,
     body_template = loader.get_template(body_template_name)
     from_email = from_email or settings.DEFAULT_FROM_EMAIL
 
-    if users is not None:
-        for user in users:
-            if not user.email:
+    messages = []
+
+    for target in to:
+        if isinstance(target, User):
+            if not target.email:
                 continue
             context.push()
-            context['user'] = user
-            msg = render_to_email(subject_template, body_template, context,
-                                  [user.email], from_email)
-            msg.send(fail_silently=fail_silently)
-            context.pop()
-    else:
-        to = [admin[1] for admin in settings.ADMINS]
-        msg = render_to_email(subject_template, body_template, context, to,
-                              from_email)
-        msg.send(fail_silently=fail_silently)
+            context['user'] = target
+            email = target.email
+        else:
+            email = target[1]
 
+        msg = render_to_email(subject_template, body_template, context,
+                              [email], from_email)
+        messages.append(msg)
+
+        if isinstance(target, User):
+            context.pop()
+
+    connection = get_connection(fail_silently=fail_silently)
+    connection.send_messages(messages)
 
 
 def send_welcome_email():
@@ -128,9 +133,10 @@ def send_welcome_email():
 
 def send_video_limit_warning():
     tier_info = SiteTierInfo.objects.get_current()
+    video_limit = tier_info.tier.video_limit
 
-    # Don't send an email if there is no limit.
-    if tier_info.tier.video_limit is None:
+    # Don't send an email if there is no limit, or if the limit is 0.
+    if video_limit is None or video_limit == 0:
         return
 
     # Don't send an email if one was sent recently.
@@ -140,17 +146,27 @@ def send_video_limit_warning():
         return
 
     # Don't send an email if the ratio of used videos is too low.
-    video_limit = tier_info.tier.video_limit
     video_count = Video.objects.filter(status=Video.ACTIVE,
                                        site=settings.SITE_ID).count()
+    old_video_count = tier_info.video_count_when_warned
     ratio = float(video_count) / video_limit
     if ratio < VIDEO_LIMIT_MIN_RATIO:
+        # If there's a stored count, clear it.
+        if old_video_count is not None:
+            tier_info.video_count_when_warned = None
+            tier_info.save()
         return
 
-    # Don't send an email if the ratio hasn't changed noticeably since the
-    # last email was sent.
-    old_video_count = tier_info.video_count_when_warned
     if old_video_count is not None:
+        # If the number of videos has stayed the same or decreased, mark the
+        # new count and don't send an email.
+        if video_count <= old_video_count:
+            tier_info.video_count_when_warned = video_count
+            tier_info.save()
+            return
+
+        # Don't send an email if the ratio hasn't increased noticeably since
+        # the last email was sent.
         old_ratio = float(old_video_count) / video_limit
         ratio_change = VIDEO_LIMIT_MIN_CHANGE_RATIO * (1 - old_ratio)
         next_ratio = old_ratio + ratio_change
