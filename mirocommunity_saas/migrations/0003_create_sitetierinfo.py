@@ -26,12 +26,15 @@ class Migration(DataMigration):
         tier_info = TierInfo.objects.get_or_create(
                                                   site_settings=site_settings)
 
-        # If they have a cost override, they were an early adopter.
-        # Otherwise, not.
-        is_early_adopter = bool(getattr(settings, 'LOCALTV_COST_OVERRIDE',
-                                        False))
+        cost_override = getattr(settings, 'LOCALTV_COST_OVERRIDE', {})
 
-        if is_early_adopter:
+        early_adopter_cost_override = {
+            'plus': 15,
+            'premium': 35,
+            'max': 75
+        }
+
+        if cost_override == early_adopter_cost_override:
             available_tiers = {
                 'basic': Tier.objects.get(slug='basic'),
                 'plus': Tier.objects.get(slug='plus_early'),
@@ -45,6 +48,17 @@ class Migration(DataMigration):
                 'premium': Tier.objects.get(slug='premium'),
                 'max': Tier.objects.get(slug='max'),
             }
+            if cost_override:
+                for name, price in cost_override.iteritems():
+                    tier = available_tiers[name]
+                    tier.price = price
+                    tier.slug += '_{0}'.format(price)
+                    tier.pk = None
+                    try:
+                        available_tiers[name] = Tier.objects.get(
+                                                            slug=tier.slug)
+                    except Tier.DoesNotExist:
+                        tier.save()
 
         tier = available_tiers[site_settings.tier_name]
 
