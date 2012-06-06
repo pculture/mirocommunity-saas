@@ -25,8 +25,9 @@ import mock
 from uploadtemplate.models import Theme
 
 from mirocommunity_saas.admin.approve_reject_views import (approve_video,
-                                                           feature_video,
-                                                           approve_all)
+                                                       feature_video,
+                                                       _video_limit_wrapper,
+                                                       approve_all)
 from mirocommunity_saas.admin.design_views import newsletter_settings
 from mirocommunity_saas.admin.livesearch_views import approve
 from mirocommunity_saas.tests.base import BaseTestCase
@@ -65,236 +66,231 @@ class NewsletterAdminTestCase(BaseTestCase):
         self.assertRaises(Http404, newsletter_settings, request)
 
 
-class ModerationTestCase(BaseTestCase):
-    """Tests related to the moderation queue."""
+class VideoLimitWrapperTestCase(BaseTestCase):
+    """
+    Tests that the VideoLimitWrapper (used on the approve_video and
+    feature_video views) works as it should.
+
+    """
+    def setUp(self):
+        BaseTestCase.setUp(self)
+        self.mock = mock.MagicMock(__name__='function')
+        self.view = _video_limit_wrapper(self.mock)
+
+    def test_passthrough(self):
+        """
+        If the video is already active, then the underlying view should be
+        called.
+
+        """
+        video = self.create_video(status=Video.ACTIVE)
+        request = self.factory.get('/', {'video_id': video.pk})
+        response = self.view(request)
+        self.assertTrue(self.mock.called)
+
+    def test_no_limit(self):
+        """
+        If the video is not yet active, and there is no limit, then the
+        original view should be called.
+
+        """
+        tier = self.create_tier(video_limit=None)
+        self.create_tier_info(tier)
+        video = self.create_video(status=Video.UNAPPROVED)
+        request = self.factory.get('/', {'video_id': video.pk})
+        response = self.view(request)
+        self.assertTrue(self.mock.called)
+
+    def test_below_limit(self):
+        """
+        If the video is not yet active, and the limit hasn't been reached,
+        then the original view should be called.
+
+        """
+        tier = self.create_tier(video_limit=100)
+        self.create_tier_info(tier)
+        video = self.create_video(status=Video.UNAPPROVED)
+        request = self.factory.get('/', {'video_id': video.pk})
+        response = self.view(request)
+        self.assertTrue(self.mock.called)
+
+    def test_at_limit(self):
+        """
+        If the video is not yet active, and the limit has been reached, then
+        the original view shouldn't be called, and we should get a 402
+        response.
+
+        """
+        tier = self.create_tier(video_limit=0)
+        self.create_tier_info(tier)
+        video = self.create_video(status=Video.UNAPPROVED)
+        request = self.factory.get('/', {'video_id': video.pk})
+        response = self.view(request)
+        self.assertFalse(self.mock.called)
+        self.assertEqual(response.status_code, 402)
+
+    def test_no_tier(self):
+        """
+        If no tier object exists, then a 404 should be raised.
+        """
+        video = self.create_video(status=Video.UNAPPROVED)
+        request = self.factory.get('/', {'video_id': video.pk})
+        with self.assertRaises(Http404):
+            self.view(request)
+        self.assertFalse(self.mock.called)
+
+
+class ApproveAllTestCase(BaseTestCase):
     def setUp(self):
         self.user = self.create_user(username='admin')
         settings = SiteSettings.objects.get_current()
         settings.admins.add(self.user)
         BaseTestCase.setUp(self)
-
-    @classmethod
-    def setUpClass(cls):
-        cls._disable_index_updates()
-        super(ModerationTestCase, cls).setUpClass()
-
-    @classmethod
-    def tearDownClass(cls):
-        cls._enable_index_updates()
-        super(ModerationTestCase, cls).tearDownClass()
-
-    def test_approve_video(self):
-        # make sure the view works if the video doesn't trigger the tiers
-        # code.
-        video = self.create_video(status=Video.ACTIVE)
-        request = self.factory.get('/', {'video_id': video.pk},
-                                   user=self.user)
-        response = approve_video(request)
-        self.assertEqual(response.status_code, 200)
-        video = Video.objects.get(pk=video.pk)
-        self.assertEqual(video.status, Video.ACTIVE)
-
-        # Okay, now the base case: it is allowed.
-        tier = self.create_tier(video_limit=None)
-        self.create_tier_info(tier)
-        video = self.create_video(status=Video.UNAPPROVED)
-        request = self.factory.get('/', {'video_id': video.pk},
-                                   user=self.user)
-        response = approve_video(request)
-        self.assertEqual(response.status_code, 200)
-        video = Video.objects.get(pk=video.pk)
-        self.assertEqual(video.status, Video.ACTIVE)
-
-        # If the limit hasn't been reached, it should go through.
-        tier.video_limit = 100
-        tier.save()
-        video = self.create_video(status=Video.UNAPPROVED)
-        request = self.factory.get('/', {'video_id': video.pk},
-                                   user=self.user)
-        response = approve_video(request)
-        self.assertEqual(response.status_code, 200)
-        video = Video.objects.get(pk=video.pk)
-        self.assertEqual(video.status, Video.ACTIVE)
-
-        # If the limit has been reached, shouldn't go through.
-        tier.video_limit = 0
-        tier.save()
-        video = self.create_video(status=Video.UNAPPROVED)
-        request = self.factory.get('/', {'video_id': video.pk},
-                                   user=self.user)
-        response = approve_video(request)
-        self.assertEqual(response.status_code, 402)
-        video = Video.objects.get(pk=video.pk)
-        self.assertEqual(video.status, Video.UNAPPROVED)
-
-        # And if there's no tier object?
-        tier.delete()
-        self.assertRaises(Http404, approve_video, request)
-        video = Video.objects.get(pk=video.pk)
-        self.assertEqual(video.status, Video.UNAPPROVED)
-
-    def test_feature_video(self):
-        # make sure the view works if the video doesn't trigger the tiers
-        # code.
-        video = self.create_video(status=Video.ACTIVE)
-        request = self.factory.get('/', {'video_id': video.pk},
-                                   user=self.user)
-        response = feature_video(request)
-        self.assertEqual(response.status_code, 200)
-        video = Video.objects.get(pk=video.pk)
-        self.assertEqual(video.status, Video.ACTIVE)
-
-        # If there's no limit, it should go through.
-        tier = self.create_tier(video_limit=None)
-        self.create_tier_info(tier)
-        video = self.create_video(status=Video.UNAPPROVED)
-        request = self.factory.get('/', {'video_id': video.pk},
-                                   user=self.user)
-        response = feature_video(request)
-        self.assertEqual(response.status_code, 200)
-        video = Video.objects.get(pk=video.pk)
-        self.assertEqual(video.status, Video.ACTIVE)
-
-        # If the limit hasn't been reached, it should go through.
-        tier.video_limit = 100
-        tier.save()
-        video = self.create_video(status=Video.UNAPPROVED)
-        request = self.factory.get('/', {'video_id': video.pk},
-                                   user=self.user)
-        response = feature_video(request)
-        self.assertEqual(response.status_code, 200)
-        video = Video.objects.get(pk=video.pk)
-        self.assertEqual(video.status, Video.ACTIVE)
-
-        # If the limit has been reached, shouldn't go through.
-        tier.video_limit = 0
-        tier.save()
-        video = self.create_video(status=Video.UNAPPROVED)
-        request = self.factory.get('/', {'video_id': video.pk},
-                                   user=self.user)
-        response = feature_video(request)
-        self.assertEqual(response.status_code, 402)
-        video = Video.objects.get(pk=video.pk)
-        self.assertEqual(video.status, Video.UNAPPROVED)
-
-        # And if there's no tier object?
-        tier.delete()
-        self.assertRaises(Http404, feature_video, request)
-        video = Video.objects.get(pk=video.pk)
-        self.assertEqual(video.status, Video.UNAPPROVED)
-
-    def test_approve_all(self):
         self.create_video(status=Video.UNAPPROVED)
         self.create_video(status=Video.UNAPPROVED)
         self.create_video(status=Video.UNAPPROVED)
+        patcher = mock.patch('mirocommunity_saas.admin.approve_reject_views.'
+                             '_approve_all')
+        self.approve_all = patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_no_tier(self):
+        """
+        Should 404 nicely if there's no tier and not call the underlying view.
+
+        """
         request = self.factory.get('/', user=self.user)
-
-        # Should 404 nicely if there's no tier.
         self.assertRaises(Http404, approve_all, request)
         self.assertEqual(Video.objects.filter(status=Video.UNAPPROVED
-                                     ).count(),
-                         3)
+                                     ).count(), 3)
+        self.assertFalse(self.approve_all.called)
 
-        # If there's no video limit, let it through.
+    def test_no_limit(self):
+        """
+        If there's no limit, the underlying view should be called.
+
+        """
+        request = self.factory.get('/', user=self.user)
         tier = self.create_tier(video_limit=None)
         self.create_tier_info(tier)
 
-        response = approve_all(request)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(Video.objects.filter(status=Video.ACTIVE).count(), 3)
-        Video.objects.all().update(status=Video.UNAPPROVED)
+        approve_all(request)
+        self.approve_all.assert_called_with(request)
+        self.assertEqual(Video.objects.filter(status=Video.UNAPPROVED
+                                     ).count(), 3)
 
+    def test_below_limit(self):
+        """
+        If the limit hasn't been reached, the underlying view should be
+        called.
 
-        # If the limit hasn't been reached, it should go through.
-        tier.video_limit = 100
-        tier.save()
-        response = approve_all(request)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(Video.objects.filter(status=Video.ACTIVE).count(), 3)
-        Video.objects.all().update(status=Video.UNAPPROVED)
+        """
+        request = self.factory.get('/', user=self.user)
+        tier = self.create_tier(video_limit=100)
+        self.create_tier_info(tier)
 
-        # If the limit has been reached, shouldn't go through.
-        tier.video_limit = 0
-        tier.save()
+        approve_all(request)
+        self.approve_all.assert_called_with(request)
+        self.assertEqual(Video.objects.filter(status=Video.UNAPPROVED
+                                     ).count(), 3)
+
+    def test_above_limit(self):
+        """
+        If the limit has been reached, we should get a 402 and the
+        underlying view shouldn't be called.
+
+        """
+        request = self.factory.get('/', user=self.user)
+        tier = self.create_tier(video_limit=0)
+        self.create_tier_info(tier)
+
         response = approve_all(request)
+        self.assertFalse(self.approve_all.called)
         self.assertEqual(response.status_code, 402)
         self.assertEqual(Video.objects.filter(status=Video.UNAPPROVED
-                                     ).count(),
-                         3)
+                                     ).count(), 3)
+
+    def test_pagination_exception(self):
+        """
+        If an error is raised during pagination, then the underlying view
+        should be called.
+
+        """
+        request = self.factory.get('/', user=self.user)
+        tier = self.create_tier(video_limit=0)
+        self.create_tier_info(tier)
+        with mock.patch('localtv.admin.approve_reject_views.Paginator.page',
+                        side_effect=Exception):
+            approve_all(request)
+        self.approve_all.assert_called_with(request)
 
 
 class LiveSearchTestCase(BaseTestCase):
     def setUp(self):
+        BaseTestCase.setUp(self)
         self.user = self.create_user(username='admin')
         settings = SiteSettings.objects.get_current()
         settings.admins.add(self.user)
-        BaseTestCase.setUp(self)
 
-    @classmethod
-    def setUpClass(cls):
-        cls._disable_index_updates()
-        super(LiveSearchTestCase, cls).setUpClass()
+    def test_approve__no_tier(self):
+        """
+        If there's no tier object, we should get a 404.
 
-    @classmethod
-    def tearDownClass(cls):
-        cls._enable_index_updates()
-        super(LiveSearchTestCase, cls).tearDownClass()
-
-    def test_approve(self):
-        # For these tests, we mock get_object to simply return the relevant
-        # video, and we mock form so that it seems valid. This lets us
-        # avoid dealing with setting up sessions etc. when that's not what
-        # we're testing here.
-        mock_path = 'mirocommunity_saas.admin.livesearch_views.LiveSearchApproveVideoView.get_object'
-        mock_path_2 = 'mirocommunity_saas.admin.livesearch_views.LiveSearchApproveVideoView.form'
-        # 404 if there's no tier object.
-        video = self.create_video(status=Video.ACTIVE)
+        """
+        video = self.create_video(status=Video.UNAPPROVED)
         request = self.factory.get('/', {'video_id': video.pk},
                                    user=self.user)
-        with mock.patch(mock_path, return_value=video):
-            with mock.patch(mock_path_2, create=True):
-                self.assertRaises(Http404, approve, request)
-        video = Video.objects.get(pk=video.pk)
-        self.assertEqual(video.status, Video.ACTIVE)
+        with mock.patch('mirocommunity_saas.admin.livesearch_views.'
+                        'LiveSearchApproveVideoView.get') as get:
+            with self.assertRaises(Http404):
+                approve(request)
+            self.assertFalse(get.called)
 
-        # Okay, now the base case: it is allowed.
+    def test_approve__no_limit(self):
+        """
+        If there's no limit, the underlying view should be called.
+
+        """
         tier = self.create_tier(video_limit=None)
         self.create_tier_info(tier)
         video = self.create_video(status=Video.UNAPPROVED)
         request = self.factory.get('/', {'video_id': video.pk},
                                    user=self.user)
-        with mock.patch(mock_path, return_value=video):
-            with mock.patch(mock_path_2, create=True):
-                response = approve(request)
-        self.assertEqual(response.status_code, 200)
-        video = Video.objects.get(pk=video.pk)
-        self.assertEqual(video.status, Video.ACTIVE)
+        with mock.patch('mirocommunity_saas.admin.livesearch_views.'
+                        'LiveSearchApproveVideoView.get') as get:
+            approve(request)
+            self.assertTrue(get.called)
 
-        # If the limit hasn't been reached, it should go through.
-        tier.video_limit = 100
-        tier.save()
+    def test_approve__below_limit(self):
+        """
+        If limit hasn't been reached, the underlying view should be called.
+
+        """
+        tier = self.create_tier(video_limit=100)
+        self.create_tier_info(tier)
         video = self.create_video(status=Video.UNAPPROVED)
         request = self.factory.get('/', {'video_id': video.pk},
                                    user=self.user)
-        with mock.patch(mock_path, return_value=video):
-            with mock.patch(mock_path_2, create=True):
-                response = approve(request)
-        self.assertEqual(response.status_code, 200)
-        video = Video.objects.get(pk=video.pk)
-        self.assertEqual(video.status, Video.ACTIVE)
+        with mock.patch('mirocommunity_saas.admin.livesearch_views.'
+                        'LiveSearchApproveVideoView.get') as get:
+            approve(request)
+            self.assertTrue(get.called)
 
-        # If the limit has been reached, shouldn't go through.
-        tier.video_limit = 0
-        tier.save()
+    def test_approve__above_limit(self):
+        """
+        If the limit has been reached, the underlying view shouldn't be
+        called; instead, we should get a 402.
+
+        """
+        tier = self.create_tier(video_limit=0)
+        self.create_tier_info(tier)
         video = self.create_video(status=Video.UNAPPROVED)
         request = self.factory.get('/', {'video_id': video.pk},
                                    user=self.user)
-        with mock.patch(mock_path, return_value=video):
-            with mock.patch(mock_path_2, create=True):
-                response = approve(request)
-        self.assertEqual(response.status_code, 402)
-        video = Video.objects.get(pk=video.pk)
-        self.assertEqual(video.status, Video.UNAPPROVED)
+        with mock.patch('mirocommunity_saas.admin.livesearch_views.'
+                        'LiveSearchApproveVideoView.get') as get:
+            response = approve(request)
+            self.assertFalse(get.called)
 
 
 class ThemeTestCase(BaseTestCase):
@@ -343,7 +339,7 @@ description={description}
         self.assertRedirects(response, url)
         self.assertEqual(Theme.objects.count(), 1)
 
-    def test_set_default(self):
+    def test_set_default__no_custom(self):
         """
         If custom themes are not allowed, only "bundled" themes can be
         selected as default.
@@ -356,8 +352,6 @@ description={description}
         tier = self.create_tier(custom_themes=False)
         self.create_tier_info(tier)
 
-        # If custom themes are disabled, only the bundled theme can be set as
-        # default.
         self.assertRaises(Theme.DoesNotExist, Theme.objects.get_default)
         url = reverse('uploadtemplate-set-default', args=(theme1.pk,))
         self.assertRequiresAuthentication(url)
@@ -373,12 +367,25 @@ description={description}
         self.assertRedirects(response, index_url)
         self.assertEqual(Theme.objects.get_default(), theme2)
 
-        # Otherwise, either theme can be set as default.
-        tier.custom_themes = True
-        tier.save()
-        Theme.objects.set_default(None)
+    def test_set_default__custom(self):
+        """
+        If custom themes are not allowed, both "bundled" and "non-bundled"
+        themes can be selected as default.
+
+        """
+        index_url = reverse('uploadtemplate-index')
+        theme1 = self.create_theme(name='Theme1', bundled=False)
+        theme2 = self.create_theme(name='Theme2', bundled=True)
+
+        tier = self.create_tier(custom_themes=True)
+        self.create_tier_info(tier)
+
         self.assertRaises(Theme.DoesNotExist, Theme.objects.get_default)
         url = reverse('uploadtemplate-set-default', args=(theme1.pk,))
+        self.assertRequiresAuthentication(url)
+        self.create_user(username='admin', password='admin',
+                         is_superuser=True)
+        self.client.login(username='admin', password='admin')
         response = self.client.get(url)
         self.assertRedirects(response, index_url)
         self.assertEqual(Theme.objects.get_default(), theme1)

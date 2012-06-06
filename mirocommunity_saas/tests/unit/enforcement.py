@@ -73,7 +73,7 @@ class NewsletterTestCase(BaseTestCase):
         self.assertRaises(Http404, newsletter, request)
 
 
-class FormTestCase(BaseTestCase):
+class SettingsFormTestCase(BaseTestCase):
     def test_settings_form(self):
         """
         The settings form shouldn't allow css to be submitted if it's
@@ -99,111 +99,153 @@ class FormTestCase(BaseTestCase):
         form.cleaned_data = data
         self.assertEqual(form.clean_css(), data['css'])
 
-    def test_author_form(self):
-        """The author form should respect tier limits."""
+
+class AuthorFormTestCase(BaseTestCase):
+    def setUp(self):
+        BaseTestCase.setUp(self)
         site_settings = SiteSettings.objects.get_current()
+        self.user = self.create_user(username='user', is_active=True)
+        self.admin = self.create_user(username='admin', is_active=True)
+        self.old_admin = self.create_user(username='admin2', is_active=False)
+        self.superuser = self.create_user(username='superuser',
+                                          is_active=True,
+                                          is_superuser=True)
+        self.old_superuser = self.create_user(username='superuser2',
+                                              is_active=False,
+                                              is_superuser=True)
+        site_settings.admins.add(self.admin)
+        site_settings.admins.add(self.old_admin)
+        site_settings.admins.add(self.superuser)
+        site_settings.admins.add(self.old_superuser)
+
+    def test_at_limit__user_role(self):
+        """
+        Even if no more admins are allowed, the user role can be set.
+
+        """
         tier = self.create_tier(admin_limit=1)
         self.create_tier_info(tier)
-        user = self.create_user(username='user', is_active=True)
-        admin = self.create_user(username='admin', is_active=True)
-        old_admin = self.create_user(username='admin2', is_active=False)
-        superuser = self.create_user(username='superuser', is_active=True,
-                                     is_superuser=True)
-        old_superuser = self.create_user(username='superuser2',
-                                         is_active=False, is_superuser=True)
-        site_settings.admins.add(admin)
-        site_settings.admins.add(old_admin)
-        site_settings.admins.add(superuser)
-        site_settings.admins.add(old_superuser)
-
-        # Even if no admins are allowed, user role can be set.
-        form = AuthorForm({'role': 'user'}, instance=user)
+        form = AuthorForm({'role': 'user'}, instance=self.user)
         form.cleaned_data = {'role': 'user'}
         self.assertEqual(form.clean_role(), 'user')
 
-        # Even if no admins are allowed, anyone who is an admin can stay
-        # that way (as far as this form is concerned.)
-        form = AuthorForm({'role': 'admin'}, instance=user,
+    def test_at_limit__already_admin(self):
+        """
+        Even if no more admins are allowed, anyone who is an admin can stay
+        that way (as far as this form is concerned.)
+
+        """
+        tier = self.create_tier(admin_limit=1)
+        self.create_tier_info(tier)
+        form = AuthorForm({'role': 'admin'}, instance=self.user,
                           initial={'role': 'admin'})
         form.cleaned_data = {'role': 'admin'}
         self.assertEqual(form.clean_role(), 'admin')
 
-        # If they're not an admin and there isn't room, it's a validation
-        # error.
-        form = AuthorForm({'role': 'admin'}, instance=user)
+    def test_at_limit(self):
+        """
+        If they're not an admin and there isn't room for more admins, it's
+        a validation error.
+
+        """
+        tier = self.create_tier(admin_limit=1)
+        self.create_tier_info(tier)
+        form = AuthorForm({'role': 'admin'}, instance=self.user)
         form.cleaned_data = {'role': 'admin'}
         self.assertRaises(ValidationError, form.clean_role)
 
-        # Admin assignment is allowed if there's room.
-        tier.admin_limit = 2
-        tier.save()
-        form = AuthorForm({'role': 'admin'}, instance=user)
+    def test_below_limit(self):
+        """
+        Admin assignment is allowed if there's room.
+
+        """
+        tier = self.create_tier(admin_limit=2)
+        self.create_tier_info(tier)
+
+        form = AuthorForm({'role': 'admin'}, instance=self.user)
         form.cleaned_data = {'role': 'admin'}
         self.assertEqual(form.clean_role(), 'admin')
 
-        tier.admin_limit = None
-        tier.save()
-        form = AuthorForm({'role': 'admin'}, instance=user)
+    def test_no_limit(self):
+        """
+        Admin assignment is allowed if there's no limit.
+
+        """
+        tier = self.create_tier(admin_limit=None)
+        self.create_tier_info(tier)
+        form = AuthorForm({'role': 'admin'}, instance=self.user)
         form.cleaned_data = {'role': 'admin'}
         self.assertEqual(form.clean_role(), 'admin')
 
-    def test_video_form_set(self):
-        """The bulk edit video form should respect tier limits."""
-        self._disable_index_updates()
+
+class VideoFormSetTestCase(BaseTestCase):
+    def setUp(self):
+        BaseTestCase.setUp(self)
         for i in range(3):
             self.create_video(status=Video.UNAPPROVED,
                               name='video{0}'.format(i),
                               file_url='http://google.com/{0}'.format(i))
 
-        prefix = 'pfx'
+        self.prefix = 'pfx'
         default = {
-            '{0}-{1}'.format(prefix, TOTAL_FORM_COUNT): 4,
-            '{0}-{1}'.format(prefix, INITIAL_FORM_COUNT): 3
+            '{0}-{1}'.format(self.prefix, TOTAL_FORM_COUNT): 4,
+            '{0}-{1}'.format(self.prefix, INITIAL_FORM_COUNT): 3
         }
         qs = Video.objects.all()
 
         for i, v in enumerate(list(qs) + [Video()]):
-            default.update(dict(('{0}-{1}-{2}'.format(prefix, i, k), v)
+            default.update(dict(('{0}-{1}-{2}'.format(self.prefix, i, k), v)
                                 for k, v in model_to_dict(v).iteritems()))
-            default['{0}-{1}-{2}'.format(prefix, i, 'BULK')] = True
+            default['{0}-{1}-{2}'.format(self.prefix, i, 'BULK')] = True
 
-        approve_data = {'bulk_action': 'feature'}
-        feature_data = {'bulk_action': 'approve'}
-        approve_data.update(default)
-        feature_data.update(default)
+        self.approve_data = {'bulk_action': 'feature'}
+        self.feature_data = {'bulk_action': 'approve'}
+        self.approve_data.update(default)
+        self.feature_data.update(default)
 
-        # Should go through if there's no limit.
+    def test_no_limit(self):
+        """
+        If there's no limit, all of the videos should be approved.
+
+        """
         tier = self.create_tier(video_limit=None)
         self.create_tier_info(tier)
 
-        for data in [approve_data, feature_data]:
+        for data in [self.approve_data, self.feature_data]:
             formset = VideoFormSet(data, queryset=Video.objects.all(),
-                                   prefix=prefix)
+                                   prefix=self.prefix)
             self.assertTrue(formset.is_valid())
             self.assertTrue(all(form.instance.status == Video.ACTIVE
                                 for form in formset.initial_forms))
 
-        # Should go through if the limit is high enough.
-        tier.video_limit = 3
-        tier.save()
+    def test_below_limit(self):
+        """
+        If the limit is high enough, the videos should be approved.
 
-        for data in [approve_data, feature_data]:
+        """
+        tier = self.create_tier(video_limit=3)
+        self.create_tier_info(tier)
+
+        for data in [self.approve_data, self.feature_data]:
             formset = VideoFormSet(data, queryset=Video.objects.all(),
-                                   prefix=prefix)
+                                   prefix=self.prefix)
             self.assertTrue(formset.is_valid())
             self.assertTrue(all(form.instance.status == Video.ACTIVE
                                 for form in formset.initial_forms))
 
-        # Should fail if there are not enough slots left.
-        tier.video_limit = 2
-        tier.save()
+    def test_above_limit(self):
+        """
+        If the limit isn't high enough, none of the videos should be approved.
+        (The formset isn't valid.)
 
-        for data in [approve_data, feature_data]:
+        """
+        tier = self.create_tier(video_limit=2)
+        self.create_tier_info(tier)
+
+        for data in [self.approve_data, self.feature_data]:
             formset = VideoFormSet(data, queryset=Video.objects.all(),
-                                   prefix=prefix)
+                                   prefix=self.prefix)
             self.assertFalse(formset.is_valid())
-
-        self._enable_index_updates()
 
 
 class EnforcementTestCase(BaseTestCase):
@@ -293,14 +335,7 @@ class EnforcementTestCase(BaseTestCase):
 
 
 class FeedImportTestCase(BaseTestCase):
-    def test_limit_import_approvals(self):
-        """
-        limit_import_approvals returns a dictionary of filters if not all
-        of the videos given can be used.
-
-        """
-        tier = self.create_tier(video_limit=20)
-        self.create_tier_info(tier)
+    def setUp(self):
         start = datetime.datetime.now() - datetime.timedelta(10)
         for i in xrange(10):
             video = self.create_video(name='video{0}'.format(i),
@@ -314,27 +349,56 @@ class FeedImportTestCase(BaseTestCase):
             video.when_submitted = start + datetime.timedelta(i)
             video.save()
 
-        active_set = Video.objects.filter(site=settings.SITE_ID
-                                 ).order_by('when_submitted')
+        self.active_set = Video.objects.filter(site=settings.SITE_ID
+                                      ).order_by('when_submitted')
+
+    def test_below_limit(self):
+        """
+        If approving the videos would leave us below the limit, then none of
+        them should be filtered out.
+
+        """
+        tier = self.create_tier(video_limit=20)
+        self.create_tier_info(tier)
         # The sender is technically usually a SourceImport instance, but it's
         # only used for its database.
-        response = limit_import_approvals(active_set[0], active_set)
+        response = limit_import_approvals(self.active_set[0], self.active_set)
         self.assertTrue(response is None)
 
-        tier.video_limit = 10
-        tier.save()
-        response = limit_import_approvals(active_set[0], active_set)
+    def test_at_limit(self):
+        """
+        If approving the videos would leave us at the limit, then none of them
+        should be filtered out.
+
+        """
+        tier = self.create_tier(video_limit=10)
+        self.create_tier_info(tier)
+        # The sender is technically usually a SourceImport instance, but it's
+        # only used for its database.
+        response = limit_import_approvals(self.active_set[0], self.active_set)
         self.assertTrue(response is None)
 
-        tier.video_limit = 5
-        tier.save()
-        response = limit_import_approvals(active_set[0], active_set)
+    def test_partially_over_limit(self):
+        """
+        If approving the videos would put us over the limit (but we aren't
+        over or at the limit yet) we should approve the earliest-submitted
+        videos.
+
+        """
+        tier = self.create_tier(video_limit=5)
+        self.create_tier_info(tier)
+        response = limit_import_approvals(self.active_set[0], self.active_set)
         self.assertEqual(response,
-                         {'when_submitted__lt': active_set[5].when_submitted})
+                    {'when_submitted__lt': self.active_set[5].when_submitted})
 
-        tier.video_limit = 0
-        tier.save()
-        response = limit_import_approvals(active_set[0], active_set)
+    def test_over_limit(self):
+        """
+        If we're already at the limit, none of the videos should be approved.
+
+        """
+        tier = self.create_tier(video_limit=0)
+        self.create_tier_info(tier)
+        response = limit_import_approvals(self.active_set[0], self.active_set)
         self.assertEqual(response, {'status': -1})
 
 
