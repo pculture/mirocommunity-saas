@@ -267,13 +267,15 @@ class EnforcementTestCase(BaseTestCase):
     def test_videos_to_deactivate(self):
         tier1 = self.create_tier(slug='tier1', video_limit=None)
         tier2 = self.create_tier(slug='tier2', video_limit=100)
-        tier3 = self.create_tier(slug='tier3', video_limit=1)
+        tier3 = self.create_tier(slug='tier3', video_limit=2)
+        tier4 = self.create_tier(slug='tier4', video_limit=1)
         video1 = self.create_video(name='video1')
         video2 = self.create_video(name='video2')
 
         self.assertEqual(videos_to_deactivate(tier1), [])
         self.assertEqual(videos_to_deactivate(tier2), [])
-        self.assertEqual(videos_to_deactivate(tier3), [video1])
+        self.assertEqual(videos_to_deactivate(tier3), [])
+        self.assertEqual(videos_to_deactivate(tier4), [video1])
 
     @override_settings(ADMINS=(('Admin1', 'admin@localhost'),))
     def test_enforce_tier(self):

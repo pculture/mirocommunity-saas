@@ -353,10 +353,9 @@ description={description}
         theme.name = 'theme.zip'
         return theme
 
-    def test_upload(self):
+    def test_upload__no_custom(self):
         """
-        If themes are not allowed, uploading a theme should give a 403 error;
-        otherwise, it should go through.
+        If themes are not allowed, uploading a theme should give a 403 error.
 
         """
         url = reverse('uploadtemplate-index')
@@ -376,12 +375,30 @@ description={description}
         self.assertEqual(response.status_code, 403)
         self.assertEqual(Theme.objects.count(), 0)
 
-        tier.custom_themes = True
-        tier.save()
+    def test_upload__custom(self):
+        """
+        If themes are allowed, uploading a theme should redirect a user to the
+        theme index after successfully creating a theme and setting it as
+        default.
+
+        """
+        url = reverse('uploadtemplate-index')
+        self.assertRequiresAuthentication(url)
+        self.create_user(username='admin', password='admin',
+                         is_superuser=True)
+        self.client.login(username='admin', password='admin')
+
+        theme = self.create_theme_zip()
+
+        tier = self.create_tier(custom_themes=True)
+        self.create_tier_info(tier)
         theme.seek(0)
+        self.assertEqual(Theme.objects.count(), 0)
         response = self.client.post(url, {'theme': theme})
         self.assertRedirects(response, url)
         self.assertEqual(Theme.objects.count(), 1)
+        theme = Theme.objects.get()
+        self.assertTrue(theme.default)
 
     def test_set_default__no_custom(self):
         """
