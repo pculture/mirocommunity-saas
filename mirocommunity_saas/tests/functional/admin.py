@@ -114,6 +114,19 @@ class VideoLimitWrapperTestCase(BaseTestCase):
         response = self.view(request)
         self.assertTrue(self.mock.called)
 
+    def test_below_limit__exact(self):
+        """
+        If the video is not yet active, and there is still space for exactly
+        one more video, then the original view should be called.
+
+        """
+        tier = self.create_tier(video_limit=1)
+        self.create_tier_info(tier)
+        video = self.create_video(status=Video.UNAPPROVED)
+        request = self.factory.get('/', {'video_id': video.pk})
+        response = self.view(request)
+        self.assertTrue(self.mock.called)
+
     def test_at_limit(self):
         """
         If the video is not yet active, and the limit has been reached, then
@@ -194,6 +207,21 @@ class ApproveAllTestCase(BaseTestCase):
         self.assertEqual(Video.objects.filter(status=Video.UNAPPROVED
                                      ).count(), 3)
 
+    def test_below_limit__exact(self):
+        """
+        If the number of videos remaining is exactly equal to the space left,
+        the underlying view should be called.
+
+        """
+        request = self.factory.get('/', user=self.user)
+        tier = self.create_tier(video_limit=3)
+        self.create_tier_info(tier)
+
+        approve_all(request)
+        self.approve_all.assert_called_with(request)
+        self.assertEqual(Video.objects.filter(status=Video.UNAPPROVED
+                                     ).count(), 3)
+
     def test_above_limit(self):
         """
         If the limit has been reached, we should get a 402 and the
@@ -267,6 +295,22 @@ class LiveSearchTestCase(BaseTestCase):
 
         """
         tier = self.create_tier(video_limit=100)
+        self.create_tier_info(tier)
+        video = self.create_video(status=Video.UNAPPROVED)
+        request = self.factory.get('/', {'video_id': video.pk},
+                                   user=self.user)
+        with mock.patch('mirocommunity_saas.admin.livesearch_views.'
+                        'LiveSearchApproveVideoView.get') as get:
+            approve(request)
+            self.assertTrue(get.called)
+
+    def test_approve__below_limit__exact(self):
+        """
+        If there is exactly one video space left, the underlying view should
+        be called.
+
+        """
+        tier = self.create_tier(video_limit=1)
         self.create_tier_info(tier)
         video = self.create_video(status=Video.UNAPPROVED)
         request = self.factory.get('/', {'video_id': video.pk},
