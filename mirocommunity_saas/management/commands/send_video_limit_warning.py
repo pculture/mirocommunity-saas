@@ -1,6 +1,6 @@
 # Miro Community - Easiest way to make a video website
 #
-# Copyright (C) 2010, 2011, 2012 Participatory Culture Foundation
+# Copyright (C) 2011, 2012 Participatory Culture Foundation
 # 
 # Miro Community is free software: you can redistribute it and/or modify it
 # under the terms of the GNU Affero General Public License as published by
@@ -15,14 +15,15 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 
-from django.conf.urls.defaults import patterns, include, url
+from django.core.management.base import NoArgsCommand
 
-urlpatterns = patterns('mirocommunity_saas.views',
-    url(r'^newsletter/$', 'newsletter', name='localtv_newsletter'))
-
-urlpatterns += patterns('',
-    url(r'^admin/', include('mirocommunity_saas.admin.urls')),
-    url(r'^', include('localtv.urls'))
-)
+from mirocommunity_saas.utils.mail import send_video_limit_warning
 
 
+class Command(NoArgsCommand):
+    """
+    Command line interface for the send_video_limit_warning utility function.
+
+    """
+    def handle_noargs(self, **options):
+        send_video_limit_warning()

@@ -15,14 +15,5 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 
-from django.conf.urls.defaults import patterns, include, url
-
-urlpatterns = patterns('mirocommunity_saas.views',
-    url(r'^newsletter/$', 'newsletter', name='localtv_newsletter'))
-
-urlpatterns += patterns('',
-    url(r'^admin/', include('mirocommunity_saas.admin.urls')),
-    url(r'^', include('localtv.urls'))
-)
-
-
+# Trigger tiers signal registration.
+from mirocommunity_saas.utils import tiers

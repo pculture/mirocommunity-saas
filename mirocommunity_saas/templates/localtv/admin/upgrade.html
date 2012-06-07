@@ -18,16 +18,12 @@ You should have received a copy of the GNU Affero General Public License
 along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 {% endcomment %}
 
-{% block body_class %}account" onbeforeunload="return setting_onunload();{% endblock body_class %}
+{% block body_class %}account{% endblock body_class %}
 
 {% load i18n %}
 
 {% block title %}{{ block.super }} - {% trans "Admin - Change site tier" %}{% endblock %}
-{% block head %}
-  {% include "localtv/admin/dirty_form.html" %}
-{% endblock %}
 {% block extrahead %}
-<link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}localtv/css/admin/signup.css" />
 <link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}localtv/css/admin/upgrade.css" />
 {% endblock extrahead %}
 
@@ -35,117 +31,54 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 
 {% block content %}
 {% include "localtv/admin/account_header.html" %}
-<div class="clear">
   <div id="upgrade_title">
     <h1>Upgrade Your Site</h1>
-    {% if offer_free_trial %}
+    {% if not tier_info.had_subscription %}
     <p>All <strong>new</strong> monthly subscribers get a <strong>free 30 day</strong> trial.</p> 
     {% endif %}
   </div><!-- // upgrade_title -->
-  
-{% if tier_info.tier_name == 'basic' %}
-<div id="basic_plan" class="clear">
-    <h1>Your current plan: <strong>basic</strong></h1>
-    <p>{% if tier_info.tier_name == 'basic' %}
-      {% if offer_free_trial %}
-        Easily upgrade to receive a free 30 day trial.
-      {% else %}
-        To upgrade, make a choice below.
-      {% endif %}
-      {% else %}
-        You can always downgrade to the basic plan.
-      {% endif %}
-    </p>
 
-</div><!-- // basic_plan -->
+  {% for tier,form in forms.iteritems %}
+    <div id="{{ tier.slug }}_plan" class="{% if tier.price %}plan{% endif %}{% if forloop.counter == 2 %} clear{% endif %}{% if tier == tier_info.tier %} selected{% endif %}">
+      <div class="hdr">
+        <h1>{{ tier.name }}</h1>
+        <h2>{% if tier.price %}${{ tier.price }}/month{% else %}Free{% endif %}</h2>
+      </div>
+      <div class="body">
+        <ul>
 
-{% else %}
-
-<div id="switchbasic" class="clear">
-  <h1>Basic <strong>Free</strong></h1>
-    <p>{% if tier_info.tier_name == 'basic' %}
-      {% if offer_free_trial %}
-        Easily upgrade to receive a free 30 day trial.
-      {% else %}
-        To upgrade, make a choice below.
-      {% endif %}
-      {% else %}
-        500 videos, your own logo and background.
-      {% endif %}
-    </p>
-    {% if tier_info.tier_name != 'basic' %}{# Note: all changes to "basic" are downgrades #}
-    {% with "Switch to basic" as message %}{% with "basic" as target_tier_name %}{% with "basic" as tier_name %}{% with would_lose_for_tier.basic as go_to_warnings %}
-    {% include 'localtv/admin/downgrade_snippet.html' %}
-    {% endwith %}{% endwith %}{% endwith %}{% endwith %}
-    {% endif %}
-</div><!-- // basic_plan -->
-{% endif %}
-
-<div id="starter_pack" class="{% if tier_info.tier_name == 'plus' %}selected {% endif %}{% if plus_would_be_downgrade %}switch_to {% endif %} plan">
-  <div class="hdr">
-    <h1>Plus</h1>
-    <h2>${{ tier_to_price.plus }}/month</h2>
-  </div><!-- // hdr -->
-  <ul>
-    <li>Your site, logo &amp; background</li>
-    <li>Custom Domain</li>
-    <li>Custom CSS</li>
-    <li><strong>1,000</strong> Video Limit</li>
-    <li><strong>5</strong> Administrator Accounts</li>
-  </ul>
-  <div class="ft">
-    <p>Plus</p>
-    {% if tier_info.tier_name != 'plus' %}{% with tier_to_price.plus as amount %}{% with "plus" as target_tier_name %}{% with switch_messages.plus as message %}{% with would_lose_for_tier.plus as go_to_warnings %}{% with can_modify_mapping.plus as can_modify %}{% with upgrade_extra_payments.plus as specific_payment_override %}
-      {% include 'localtv/admin/paypal_form_snippet.html' %}
-    {% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endif %}
-      </p>
-
-  </div><!-- // ft -->
-</div><!-- // starter_pack -->
-
-<div id="value_added" class="{% if tier_info.tier_name == 'premium'%}selected {% endif %}plan">
-  <div class="hdr">
-    <h1>Premium</h1>
-    <h2>${{ tier_to_price.premium}}/month</h2>
-  </div><!-- // hdr -->
-  <ul>
-    <li>Your site, logo &amp; background</li>
-    <li>Custom Domain</li>
-    <li>Custom CSS</li>
-    <li><strong>5,000</strong> Video Limit</li>
-    <li><strong>Unlimited</strong> Administrator Accounts</li>
-    <li>You can run advertising</li>
-  </ul>
-  <div class="ft">
-{% if tier_info.tier_name != "premium" %}{% with tier_to_price.premium as amount %}{% with "premium" as target_tier_name %}{% with switch_messages.premium as message %}{% with would_lose_for_tier.premium as go_to_warnings %}{% with can_modify_mapping.premium as can_modify %}{% with upgrade_extra_payments.premium as specific_payment_override %}
-      {% include 'localtv/admin/paypal_form_snippet.html' %}
-      {% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endif %}
-
-    <p>Premium</p>
-  </div><!-- // ft -->
-</div><!-- // value_added -->
-
-<div id="delicious_plan" class="{% if tier_info.tier_name == 'max' %}selected {% endif %}last plan">
-  <div class="hdr">
-    <h1>Max</h1>
-    <h2>${{ tier_to_price.max }}/month</h2>
-  </div><!-- // hdr -->
-  <ul>
-    <li>Your site, logo &amp; background</li>
-    <li>Custom Domain</li>
-    <li>Custom CSS</li>
-    <li><strong>25,000</strong> Video Limit</li>
-    <li><strong>Unlimited</strong> Administrator Accounts</li>
-    <li>You can run advertising</li>
-    <li>Fully Custom Templating</li>
-  </ul>
-  <div class="ft">
-{% if tier_info.tier_name != "max" %}{% with tier_to_price.max as amount %}{% with "max" as target_tier_name %}{% with "Upgrade Your Account" as message %}{% with would_lose_for_tier.max as go_to_warnings %}{% with can_modify_mapping.max as can_modify %}{% with upgrade_extra_payments.max as specific_payment_override %}
-      {% include 'localtv/admin/paypal_form_snippet.html' %}
-      {% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endwith %}{% endif %}
-    <p>Max</p>
-  </div><!-- // ft -->
-</div><!-- // delcisious_plan -->
-</div><!-- // clear -->
+          <li>Your site, logo &amp; background</li>
+          {% if tier.custom_domain %}
+            <li>Custom domain</li>
+          {% endif %}
+          {% if tier.custom_css %}
+            <li>Custom css</li>
+          {% endif %}
+          <li><strong>{% if tier.video_limit %}{{ tier.video_limit }}{% else %}Unlimited{% endif %}</strong> videos</li>
+          <li><strong>{% if tier.admin_limit == 0 or tier.admin_limit %}{{ tier.admin_limit|add:1 }}{% else %}Unlimited{% endif %}</strong> administrator account{% if tier.admin_limit != 0 %}s{% endif %}</li>
+          {% if tier.ads_allowed %}
+            <li>You can run advertising</li>
+          {% endif %}
+          {% if tier.custom_themes %}
+            <li>Fully custom templating</li>
+          {% endif %}
+        </ul>
+      </div>
+      <div class="ft">
+        {% if tier == tier_info.tier %}
+          <p>Your current plan</p>
+        {% else %}
+          <form action="{{ form.action }}" method="{{ form.method }}">
+            {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+            <button type="submit">
+              <em>{% if tier.price <= tier_info.tier.price %}
+                Switch to {{ tier.name }}{% else %}
+                Upgrade your account{% endif %}
+              </em>
+            </button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  {% endfor %}
 {% endblock %}
-

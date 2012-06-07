@@ -1,72 +1,19 @@
 # -*- coding: utf-8 -*-
 import datetime
 from south.db import db
-from south.v2 import SchemaMigration
+from south.v2 import DataMigration
+from django.core.management import call_command
 from django.db import models
 
-
-class Migration(SchemaMigration):
+class Migration(DataMigration):
 
     def forwards(self, orm):
-        # Adding model 'Tier'
-        db.create_table('mirocommunity_saas_tier', (
-            ('id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
-            ('name', self.gf('django.db.models.fields.CharField')(max_length=30)),
-            ('slug', self.gf('django.db.models.fields.SlugField')(unique=True, max_length=30)),
-            ('price', self.gf('django.db.models.fields.PositiveIntegerField')(default=0)),
-            ('admin_limit', self.gf('django.db.models.fields.PositiveIntegerField')(null=True, blank=True)),
-            ('video_limit', self.gf('django.db.models.fields.PositiveIntegerField')(null=True, blank=True)),
-            ('custom_css', self.gf('django.db.models.fields.BooleanField')(default=False)),
-            ('custom_themes', self.gf('django.db.models.fields.BooleanField')(default=False)),
-            ('custom_domain', self.gf('django.db.models.fields.BooleanField')(default=False)),
-            ('ads_allowed', self.gf('django.db.models.fields.BooleanField')(default=False)),
-            ('newsletter', self.gf('django.db.models.fields.BooleanField')(default=False)),
-        ))
-        db.send_create_signal('mirocommunity_saas', ['Tier'])
-
-        # Adding model 'SiteTierInfo'
-        db.create_table('mirocommunity_saas_sitetierinfo', (
-            ('id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
-            ('site', self.gf('django.db.models.fields.related.OneToOneField')(related_name='tier_info', unique=True, to=orm['sites.Site'])),
-            ('site_name', self.gf('django.db.models.fields.CharField')(max_length=30, blank=True)),
-            ('tier', self.gf('django.db.models.fields.related.ForeignKey')(to=orm['mirocommunity_saas.Tier'])),
-            ('tier_changed', self.gf('django.db.models.fields.DateTimeField')()),
-            ('enforce_payments', self.gf('django.db.models.fields.BooleanField')(default=False)),
-            ('welcome_email_sent', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-            ('free_trial_ending_sent', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-            ('video_limit_warning_sent', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-            ('video_count_when_warned', self.gf('django.db.models.fields.PositiveIntegerField')(null=True, blank=True)),
-        ))
-        db.send_create_signal('mirocommunity_saas', ['SiteTierInfo'])
-
-        # Adding M2M table for field available_tiers on 'SiteTierInfo'
-        db.create_table('mirocommunity_saas_sitetierinfo_available_tiers', (
-            ('id', models.AutoField(verbose_name='ID', primary_key=True, auto_created=True)),
-            ('sitetierinfo', models.ForeignKey(orm['mirocommunity_saas.sitetierinfo'], null=False)),
-            ('tier', models.ForeignKey(orm['mirocommunity_saas.tier'], null=False))
-        ))
-        db.create_unique('mirocommunity_saas_sitetierinfo_available_tiers', ['sitetierinfo_id', 'tier_id'])
-
-        # Adding M2M table for field ipn_set on 'SiteTierInfo'
-        db.create_table('mirocommunity_saas_sitetierinfo_ipn_set', (
-            ('id', models.AutoField(verbose_name='ID', primary_key=True, auto_created=True)),
-            ('sitetierinfo', models.ForeignKey(orm['mirocommunity_saas.sitetierinfo'], null=False)),
-            ('paypalipn', models.ForeignKey(orm['ipn.paypalipn'], null=False))
-        ))
-        db.create_unique('mirocommunity_saas_sitetierinfo_ipn_set', ['sitetierinfo_id', 'paypalipn_id'])
+        "Write your forwards methods here."
+        call_command("loaddata", "tiers.json")
 
     def backwards(self, orm):
-        # Deleting model 'Tier'
-        db.delete_table('mirocommunity_saas_tier')
-
-        # Deleting model 'SiteTierInfo'
-        db.delete_table('mirocommunity_saas_sitetierinfo')
-
-        # Removing M2M table for field available_tiers on 'SiteTierInfo'
-        db.delete_table('mirocommunity_saas_sitetierinfo_available_tiers')
-
-        # Removing M2M table for field ipn_set on 'SiteTierInfo'
-        db.delete_table('mirocommunity_saas_sitetierinfo_ipn_set')
+        "Write your backwards methods here."
+        pass
 
     models = {
         'ipn.paypalipn': {
@@ -221,3 +168,4 @@ class Migration(SchemaMigration):
     }
 
     complete_apps = ['mirocommunity_saas']
+    symmetrical = True

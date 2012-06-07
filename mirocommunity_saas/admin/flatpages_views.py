@@ -1,28 +1,32 @@
 # Miro Community - Easiest way to make a video website
 #
 # Copyright (C) 2010, 2011, 2012 Participatory Culture Foundation
-# 
+#
 # Miro Community is free software: you can redistribute it and/or modify it
 # under the terms of the GNU Affero General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or (at your
 # option) any later version.
-# 
+#
 # Miro Community is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Affero General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU Affero General Public License
 # along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 
-from django.conf.urls.defaults import patterns, include, url
+from django.http import Http404
+from localtv.admin.flatpages_views import index
 
-urlpatterns = patterns('mirocommunity_saas.views',
-    url(r'^newsletter/$', 'newsletter', name='localtv_newsletter'))
-
-urlpatterns += patterns('',
-    url(r'^admin/', include('mirocommunity_saas.admin.urls')),
-    url(r'^', include('localtv.urls'))
-)
+from mirocommunity_saas.models import SiteTierInfo
 
 
+def flatpages_admin(request):
+	"""
+	Flatpages should only be editable if custom theming is allowed.
+
+	"""
+	tier = SiteTierInfo.objects.get_current().tier
+	if not tier.custom_themes:
+		raise Http404
+	return index(request)

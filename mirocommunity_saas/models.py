@@ -1,143 +1,252 @@
-import base64
+# Miro Community - Easiest way to make a video website
+#
+# Copyright (C) 2010, 2011, 2012 Participatory Culture Foundation
+# 
+# Miro Community is free software: you can redistribute it and/or modify it
+# under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your
+# option) any later version.
+# 
+# Miro Community is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+# 
+# You should have received a copy of the GNU Affero General Public License
+# along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
+
 import datetime
-import os
 
+from django.contrib.sites.models import Site
 from django.db import models
+from localtv.models import SiteRelatedManager
+from paypal.standard.ipn.models import PayPalIPN
 
-from localtv.models import SingletonManager, SiteSettings
 
-from mirocommunity_saas import settings as lsettings
-from mirocommunity_saas import tiers
+class Tier(models.Model):
+    #: Human-readable name.
+    name = models.CharField(max_length=30)
+    #: A unique slug.
+    slug = models.SlugField(max_length=30, unique=True)
 
-class TierInfo(models.Model):
-    payment_due_date = models.DateTimeField(null=True, blank=True)
-    free_trial_available = models.BooleanField(default=True)
-    free_trial_started_on = models.DateTimeField(null=True, blank=True)
-    in_free_trial = models.BooleanField(default=False)
-    payment_secret = models.CharField(max_length=255, default='',blank=True) # This is part of payment URLs.
-    current_paypal_profile_id = models.CharField(max_length=255, default='',blank=True) # NOTE: When using this, fill it if it seems blank.
-    video_allotment_warning_sent = models.BooleanField(default=False)
-    free_trial_warning_sent = models.BooleanField(default=False)
-    already_sent_welcome_email = models.BooleanField(default=False)
-    inactive_site_warning_sent = models.BooleanField(default=False)
-    user_has_successfully_performed_a_paypal_transaction = models.BooleanField(default=False)
-    already_sent_tiers_compliance_email = models.BooleanField(default=False)
-    tier_name = models.CharField(max_length=255, default='basic', blank=False,
-                                 choices=tiers.CHOICES)
-    fully_confirmed_tier_name = models.CharField(max_length=255, default='', blank=True)
-    should_send_welcome_email_on_paypal_event = models.BooleanField(default=False)
-    waiting_on_payment_until = models.DateTimeField(null=True, blank=True)
-    site_settings = models.OneToOneField(SiteSettings,
-                                         db_column='sitelocation_id')
-    objects = SingletonManager()
+    #: Price (USD) for the tier.
+    price = models.PositiveIntegerField(default=0)
 
-    class Meta:
-        db_table = 'localtv_tierinfo'
+    #: Maximum number of admins allowed by this tier (excluding superusers).
+    #: If blank, unlimited admins can be chosen.
+    admin_limit = models.PositiveIntegerField(blank=True, null=True)
 
-    @staticmethod
-    def enforce_tiers(override_setting=None, using='default'):
-        '''If the admin has set LOCALTV_DISABLE_TIERS_ENFORCEMENT to a True value,
-        then this function returns False. Otherwise, it returns True.'''
-        if override_setting is None:
-            disabled = lsettings.DISABLE_TIERS_ENFORCEMENT
-        else:
-            disabled = override_setting
+    #: Maximum number of videos for this tier. If blank, videos are unlimited.
+    video_limit = models.PositiveIntegerField(blank=True, null=True)
 
-        if disabled:
-            # Well, hmm. If the site admin participated in a PayPal transaction, then we
-            # actually will enforce the tiers.
-            #
-            # Go figure.
-            tierdata = TierInfo.objects.db_manager(using).get_current()
-            if tierdata.user_has_successfully_performed_a_paypal_transaction:
-                return True # enforce it.
+    #: Whether custom css is permitted for this tier.
+    custom_css = models.BooleanField(default=False)
 
-        # Generally, we just negate the "disabled" boolean.
-        return not disabled
+    #: Whether custom themes are permitted for this tier.
+    custom_themes = models.BooleanField(default=False)
 
-    def get_fully_confirmed_tier(self):
-        # If we are in a transitional state, then we would have stored
-        # the last fully confirmed tier name in an unusual column.
-        if self.fully_confirmed_tier_name:
-            return tiers.Tier(self.fully_confirmed_tier_name)
-        return None
+    #: Whether a custom domain is allowed for this tier.
+    custom_domain = models.BooleanField(default=False)
 
-    def get_payment_secret(self):
-        '''The secret had better be non-empty. So we make it non-empty right here.'''
-        if not self.payment_secret:
-            self.payment_secret = base64.b64encode(os.urandom(16))
-            self.save()
-        return self.payment_secret
+    #: Whether users at this level are allowed to run advertising.
+    ads_allowed = models.BooleanField(default=False)
 
-    def site_is_subsidized(self):
-        return (self.current_paypal_profile_id == 'subsidized')
+    #: Whether the crappy newsletter feature is enabled for this tier.
+    #: Included for completeness.
+    newsletter = models.BooleanField(default=False)
 
-    def set_to_subsidized(self):
-        if self.current_paypal_profile_id:
-            raise AssertionError, (
-                "Bailing out: " +
-                "the site already has a payment profile configured: %s" %
-                                   self.current_paypal_profile_id)
-        self.current_paypal_profile_id = 'subsidized'
+    def __unicode__(self):
+        return u"{name}: {price}".format(name=self.name, price=self.price)
 
-    def time_until_free_trial_expires(self, now = None):
-        if not self.in_free_trial:
+
+class SiteTierInfoManager(SiteRelatedManager):
+    def _new_entry(self, site, using):
+        # For now, we assume that the default tier should be a free tier. We
+        # also assume that there is only one free tier.
+        try:
+            tier = Tier.objects.get(price=0)
+        except Tier.DoesNotExist:
+            raise self.model.DoesNotExist
+        return self.db_manager(using).create(site=site, tier=tier,
+                                         tier_changed=datetime.datetime.now())
+
+
+class SiteTierInfo(models.Model):
+    site = models.OneToOneField(Site, related_name='tier_info')
+
+    #: The original subdomain for this site.
+    site_name = models.CharField(max_length=30, blank=True)
+
+    #: A list of tiers that the site admin can choose from.
+    available_tiers = models.ManyToManyField(Tier,
+                                             related_name='site_available_set')
+    #: The current selected tier (based on the admin's choice).
+    tier = models.ForeignKey(Tier)
+
+    #: Date and time when the tier was last changed.
+    tier_changed = models.DateTimeField()
+
+    #: A list of payment objects for this site. This can be used, for example,
+    #: to check the next due date for the subscription.
+    ipn_set = models.ManyToManyField(PayPalIPN, blank=True)
+
+    #: Whether or not the current tier should be enforced by making sure
+    #: payments are coming in.
+    enforce_payments = models.BooleanField(default=False)
+
+    #: The datetime when the welcome email was sent to this site's owner.
+    welcome_email_sent = models.DateTimeField(blank=True, null=True)
+
+    #: The datetime when a "free trial ending" email was sent to the site's
+    #: owner.
+    free_trial_ending_sent = models.DateTimeField(blank=True, null=True)
+
+    #: The last datetime when a warning was sent to the site's owner to let
+    #: them know they're approaching their video limit.
+    video_limit_warning_sent = models.DateTimeField(blank=True, null=True)
+
+    #: The video count for the site the last time that the site's owner
+    #: received a video limit warning.
+    video_count_when_warned = models.PositiveIntegerField(blank=True, null=True)
+
+    objects = SiteTierInfoManager()
+
+    def __unicode__(self):
+        return "Tier info for {0}".format(self.site.domain)
+
+    def get_subscription(self):
+        """
+        Returns ``None`` if there is no active subscription, or the most
+        recent ipn which started or modified the current active subscription.
+
+        """
+        subscriptions = self.ipn_set.filter(flag=False,
+                                            txn_type__in=('subscr_signup',
+                                                          'subscr_modify'))
+        try:
+            subscription = subscriptions.order_by('-created_at')[0]
+        except IndexError:
             return None
-        if not self.payment_due_date:
+
+        try:
+            # We use eot as the ending since it signals when the subscription
+            # actually ends (as opposed to when it was canceled.)
+            self.ipn_set.get(subscr_id=subscription.subscr_id,
+                             flag=False,
+                             txn_type='subscr_eot')
+        except PayPalIPN.DoesNotExist:
+            return subscription
+        else:
             return None
 
-        if now is None:
-            now = datetime.datetime.utcnow()
-        return (self.payment_due_date - now)
+    @property
+    def subscription(self):
+        if not hasattr(self, '_subscription'):
+            self._subscription = self.get_subscription()
+        return self._subscription
 
-    def use_zendesk(self):
-        '''If the site is configured to, we can send notifications of
-        tiers-related changes to ZenDesk, the customer support ticketing
-        system used by PCF.
+    def get_latest_payment(self):
+        """
+        Returns the latest payment on the current subscription, or ``None``
+        if there is no current subscription or if no payments have been made
+        on the current subscription.
 
-        A non-PCF deployment of localtv would not want to set the
-        LOCALTV_USE_ZENDESK setting. Then this method will return False,
-        and the parts of the tiers system that check it will avoid
-        making calls out to ZenDesk.'''
-        return lsettings.USE_ZENDESK
+        """
+        if self.subscription is None:
+            return None
 
-    def get_tier(self):
-        return tiers.Tier(self.tier_name, self.site_settings)
+        payments = self.ipn_set.filter(flag=False,
+                                       txn_type='subscr_payment',
+                                       subscr_id=self.subscription.subscr_id)
+        try:
+            return payments.order_by('-created_at')[0]
+        except IndexError:
+            return None
 
-    def add_queued_mail(self, data):
-        if not hasattr(self, '_queued_mail'):
-            self._queued_mail = []
-        self._queued_mail.append(data)
+    @property
+    def latest_payment(self):
+        if not hasattr(self, '_latest_payment'):
+            self._latest_payment = self.get_latest_payment()
+        return self._latest_payment
 
-    def get_queued_mail_destructively(self):
-        ret = getattr(self, '_queued_mail', [])
-        self._queued_mail = []
-        return ret
-
-    def display_custom_css(self):
-        '''This function checks the site tier, and if permitted, returns the
-        custom CSS the admin has set.
-
-        If that is not permitted, it returns the empty unicode string.'''
-        if (not self.enforce_tiers() or
-            self.get_tier().permit_custom_css()):
-            return True
+    def _period_to_timedelta(self, period_str):
+        """
+        Converts an IPN period string to a timedelta representing that string.
+        """
+        period_len, period_unit = period_str.split(' ')
+        period_len = int(period_len)
+        if period_unit == 'D':
+            period_unit = datetime.timedelta(1)
         else:
+            # We don't support other periods at the moment...
+            raise ValueError("Unknown period unit: {0}".format(period_unit))
+
+        return period_len * period_unit
+
+    def get_next_due_date(self):
+        """
+        Returns the datetime when the next payment is expected, or ``None`` if
+        there is not an active subscription. This does not take into account
+        whether payments are actually enforced, or whether the current tier is
+        paid.
+
+        """
+        if self.subscription is None:
+            return None
+
+        if self.latest_payment is None:
+            return self.get_free_trial_end()
+
+        period = self._period_to_timedelta(self.subscription.period3)
+        return self.latest_payment.payment_date + period
+
+    def get_free_trial_end(self):
+        """
+        Returns the datetime when the current subscription's free trial ends
+        or ended. If there is no current subscription, returns ``None``; if
+        the subscription does not include a free trial, returns the start of
+        the subscription. This does not take into account whether payments are
+        actually enforced, or whether the current tier is paid.
+
+        """
+        # If they have no signup, then the question is meaningless.
+        if self.subscription is None:
+            return None
+
+        start = self.subscription.subscr_date
+
+        # If there is no free trial, then return the start of the
+        # subscription.
+        if not self.subscription.period1:
+            return start
+
+        period = self._period_to_timedelta(self.subscription.period1)
+        return start + period
+
+    @property
+    def in_free_trial(self):
+        """
+        Returns ``True`` if the site is currently in a free trial and
+        ``False`` otherwise.  This does not take into account whether payments
+        are actually enforced, or whether the current tier is paid.
+
+        """
+        end = self.get_free_trial_end()
+
+        # If there's no subscription, there can't be a free trial.
+        if end is None:
             return False
 
-    def enforce_permit_custom_template(self):
-        if not self.enforce_tiers():
-            return True
-        return self.get_tier().permit_custom_template()
+        return datetime.datetime.now() < end
 
-### register pre-save handler for Tiers and payment due dates
-models.signals.pre_save.connect(tiers.pre_save_set_payment_due_date,
-                                sender=TierInfo)
-models.signals.pre_save.connect(tiers.pre_save_adjust_resource_usage,
-                                sender=TierInfo)
-models.signals.post_save.connect(tiers.post_save_send_queued_mail,
-                                 sender=TierInfo)
+    @property
+    def had_subscription(self):
+        """
+        Returns ``True`` if the site has ever had a subscription and ``False``
+        otherwise.
 
-from localtv.signals import pre_mark_as_active, submit_finished
-pre_mark_as_active.connect(tiers.pre_mark_as_active)
-submit_finished.connect(tiers.submit_finished)
+        """
+        return self.ipn_set.filter(flag=False,
+                                   txn_type__in=('subscr_signup',
+                                                 'subscr_modify')
+                          ).exists()
