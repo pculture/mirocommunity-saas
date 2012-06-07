@@ -37,6 +37,7 @@ from paypal.standard.conf import (POSTBACK_ENDPOINT,
 from paypal.standard.forms import PayPalPaymentsForm
 
 from mirocommunity_saas.models import SiteTierInfo, Tier
+from mirocommunity_saas.utils.mail import send_welcome_email
 from mirocommunity_saas.utils.tiers import (make_tier_change_token,
                                             check_tier_change_token)
 
@@ -229,6 +230,10 @@ class TierChangeForm(forms.Form):
         self.tier_info.tier = self.cleaned_data['tier']
         self.tier_info.tier_changed = datetime.datetime.now()
         self.tier_info.save()
+        # Run send_welcome_email to get it out of the way if they're
+        # arriving after paying on paypal. It won't do anything if it was
+        # already sent, and the overhead is minimal.
+        send_welcome_email()
 
 
 class PayPalCancellationForm(forms.Form):
