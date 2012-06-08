@@ -46,13 +46,12 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
       </div>
       <div class="body">
         <ul>
-
           <li>Your site, logo &amp; background</li>
           {% if tier.custom_domain %}
             <li>Custom domain</li>
           {% endif %}
           {% if tier.custom_css %}
-            <li>Custom css</li>
+            <li>Custom CSS</li>
           {% endif %}
           <li><strong>{% if tier.video_limit %}{{ tier.video_limit }}{% else %}Unlimited{% endif %}</strong> videos</li>
           <li><strong>{% if tier.admin_limit == 0 or tier.admin_limit %}{{ tier.admin_limit|add:1 }}{% else %}Unlimited{% endif %}</strong> administrator account{% if tier.admin_limit != 0 %}s{% endif %}</li>
