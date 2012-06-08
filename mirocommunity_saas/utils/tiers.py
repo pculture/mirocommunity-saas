@@ -19,7 +19,6 @@ from django.conf import settings
 from django.contrib.sites.models import Site
 from django.dispatch import receiver
 from django.utils.crypto import constant_time_compare, salted_hmac
-from localtv.models import SiteSettings, Video
 from localtv.signals import pre_mark_as_active, submit_finished
 from paypal.standard.ipn.signals import (payment_was_successful,
                                          payment_was_flagged,
@@ -40,6 +39,7 @@ def admins_to_demote(tier):
     :attr:`admin_limit`.
 
     """
+    from localtv.models import SiteSettings
     # If there is no limit, we're done.
     if tier.admin_limit is None:
         return []
@@ -67,6 +67,7 @@ def videos_to_deactivate(tier):
     if tier.video_limit is None:
         return []
 
+    from localtv.models import Video
     videos = Video.objects.filter(status=Video.ACTIVE, site=settings.SITE_ID)
     # If the number of videos is already below the limit, we're done.
     deactivate_count = videos.count() - tier.video_limit
@@ -88,6 +89,7 @@ def enforce_tier(tier):
     - Deactivating custom domains. (Or at least emailing support to do so.)
 
     """
+    from localtv.models import SiteSettings, Video
     demotees = admins_to_demote(tier)
     site_settings = SiteSettings.objects.get_current()
     site = site_settings.site
@@ -141,6 +143,7 @@ def limit_import_approvals(sender, active_set, **kwargs):
     # patching. TODO: Remove that hack ;-)
     # Perhaps this should be done by just running tiers enforcement after the
     # import?
+    from localtv.models import Video
     using = sender._state.db
     tier = SiteTierInfo.objects.db_manager(using).get_current().tier
     videos = Video.objects.using(using).filter(status=Video.ACTIVE,
@@ -165,6 +168,7 @@ def check_submission_approval(sender, **kwargs):
     it's active and it put the user over their video limit.
 
     """
+    from localtv.models import Video
     if sender.status != Video.ACTIVE:
         # Okay, then nothing to do.
         return

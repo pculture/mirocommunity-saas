@@ -23,7 +23,6 @@ from django.contrib.auth.models import User
 from django.core.mail import EmailMultiAlternatives, get_connection
 from django.template.defaultfilters import striptags
 from django.template import Context, loader
-from localtv.models import Video
 
 from mirocommunity_saas.models import SiteTierInfo
 
@@ -146,6 +145,9 @@ def send_video_limit_warning():
         return
 
     # Don't send an email if the ratio of used videos is too low.
+    # We import here so that the mail module can be imported without importing
+    # localtv.models.
+    from localtv.models import Video
     video_count = Video.objects.filter(status=Video.ACTIVE,
                                        site=settings.SITE_ID).count()
     old_video_count = tier_info.video_count_when_warned

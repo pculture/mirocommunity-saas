@@ -19,7 +19,7 @@ import datetime
 
 from django.contrib.sites.models import Site
 from django.db import models
-from localtv.models import SiteRelatedManager
+from localtv.managers import SiteRelatedManager
 from paypal.standard.ipn.models import PayPalIPN
 
 
