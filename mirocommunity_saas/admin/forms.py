@@ -33,7 +33,8 @@ from localtv.admin.forms import (EditSettingsForm as _EditSettingsForm,
 from localtv.models import Video
 from paypal.standard.conf import (POSTBACK_ENDPOINT,
                                   SANDBOX_POSTBACK_ENDPOINT,
-                                  RECEIVER_EMAIL)
+                                  RECEIVER_EMAIL,
+                                  TEST as PAYPAL_TEST)
 from paypal.standard.forms import PayPalPaymentsForm
 
 from mirocommunity_saas.models import SiteTierInfo, Tier
@@ -237,8 +238,7 @@ class TierChangeForm(forms.Form):
 
 
 class PayPalCancellationForm(forms.Form):
-    action = (SANDBOX_POSTBACK_ENDPOINT if settings.PAYPAL_TEST else
-              POSTBACK_ENDPOINT)
+    action = (SANDBOX_POSTBACK_ENDPOINT if PAYPAL_TEST else POSTBACK_ENDPOINT)
     method = "get"
 
     cmd = forms.CharField(widget=forms.HiddenInput)
@@ -255,8 +255,7 @@ class PayPalCancellationForm(forms.Form):
 
 
 class PayPalSubscriptionForm(PayPalPaymentsForm):
-    action = (SANDBOX_POSTBACK_ENDPOINT if settings.PAYPAL_TEST else
-              POSTBACK_ENDPOINT)
+    action = (SANDBOX_POSTBACK_ENDPOINT if PAYPAL_TEST else POSTBACK_ENDPOINT)
     method = "post"
     return_url = 'localtv_admin_tier_change'
     cancel_return = 'localtv_admin_tier'
