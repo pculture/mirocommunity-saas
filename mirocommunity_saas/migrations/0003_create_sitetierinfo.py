@@ -24,7 +24,7 @@ class Migration(DataMigration):
         site = Site.objects.get(pk=settings.SITE_ID)
         site_settings = SiteSettings.objects.get(site=site)
         tier_info = TierInfo.objects.get_or_create(
-                                                  site_settings=site_settings)
+                                               site_settings=site_settings)[0]
 
         cost_override = getattr(settings, 'LOCALTV_COST_OVERRIDE', {})
 
