@@ -85,7 +85,7 @@ class Migration(DataMigration):
                                     if tier_info.video_allotment_warning_sent
                                     else None),
             )
-            for tier in available_tiers:
+            for tier in available_tiers.values():
                 site_tier_info.available_tiers.add(tier)
 
     def backwards(self, orm):
