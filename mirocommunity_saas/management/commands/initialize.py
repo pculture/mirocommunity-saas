@@ -25,6 +25,7 @@ from django.contrib.sites.models import Site
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from localtv.models import SiteSettings
+from localtv.tasks import CELERY_USING
 
 from mirocommunity_saas.admin.forms import PayPalSubscriptionForm
 from mirocommunity_saas.models import Tier, SiteTierInfo
@@ -85,7 +86,8 @@ class Command(BaseCommand):
         else:
             # Send the welcome email in ~30 minutes if they haven't gotten
             # back from paypal by then.
-            welcome_email_task.apply_async(countdown=30*60)
+            welcome_email_task.apply_async(countdown=30*60,
+                                           kwargs={'using': CELERY_USING})
             form = PayPalSubscriptionForm(tier)
             data = form.initial
 
