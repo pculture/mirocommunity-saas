@@ -37,5 +37,5 @@ class CompressedBotoStorage(S3BotoStorage):
 
     """
     def __init__(self, *args, **kwargs):
-        super(StaticBotoStorage, self).__init__(*args, **kwargs)
+        super(CompressedBotoStorage, self).__init__(*args, **kwargs)
         self.location = '/'.join((self.location, 'compressed'))
