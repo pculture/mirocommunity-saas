@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import random
 
 from boto.s3.connection import OrdinaryCallingFormat
