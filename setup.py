@@ -1,12 +1,24 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
+from setuptools import setup, find_packages
 
 setup(name='MiroCommunity-SAAS',
-      version='1.0',
-      description='Python Distribution Utilities',
+      version='1.9',
+      description="Public Miro Community files specific to the service PCF "
+      			  "provides.",
       author='Participatory Culture Foundation',
-      author_email='pswartz@pculture.org',
+      author_email='dev@mirocommunity.org',
       url='http://www.mirocommunity.org/',
-      packages=['mirocommunity_saas'])
-
+      packages=find_packages(),
+      include_package_data=True,
+      classifiers=[
+          'Environment :: Web Environment',
+          'Framework :: Django',
+          'Intended Audience :: Developers',
+          'Intended Audience :: System Administrators',
+          'Operating System :: OS Independent',
+          'Programming Language :: Python',
+          'Topic :: Multimedia :: Sound/Audio',
+          'Topic :: Multimedia :: Video',
+      ],
+      platforms=['OS Independent'],)
