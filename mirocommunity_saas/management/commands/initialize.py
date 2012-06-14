@@ -45,7 +45,7 @@ class Command(BaseCommand):
             "welcome email, and prints a url to stdout which the site owner "
             "should be redirected to in order to complete registration.")
 
-    def handle(self, site_name, *args, **options):
+    def handle(self, site_name, domain, **options):
         call_command('loaddata',
                      'tiers.json')
         available_tiers = Tier.objects.filter(slug__in=('basic',
@@ -68,7 +68,7 @@ class Command(BaseCommand):
             self.stderr.write('Site already initialized.\n')
             return
         site.name = site_name
-        site.domain = "{0}.mirocommunity.org".format(site_name)
+        site.domain = domain
         site.save()
 
         SiteSettings.objects.get_or_create(site=site)
