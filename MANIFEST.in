@@ -1,0 +1,4 @@
+include MANIFEST.in
+recursive-include mirocommunity_saas/templates *.html *.txt *.md
+recursive-include mirocommunity_saas/static *.css
+recursive-include mirocommunity_saas/fixtures *.json
