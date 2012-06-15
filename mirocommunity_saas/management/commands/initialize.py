@@ -64,6 +64,7 @@ class Command(BaseCommand):
                                 tier_changed=datetime.datetime.now(),
                                 enforce_payments=True,
                                 site_name=site_name)
+            tier_info.available_tiers = available_tiers
         else:
             self.stderr.write('Site already initialized.\n')
             return
