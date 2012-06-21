@@ -65,6 +65,10 @@ class Command(BaseCommand):
                                 enforce_payments=True,
                                 site_name=site_name)
             tier_info.available_tiers = available_tiers
+
+            # Make sure the migrations look run.
+            if 'south' in settings.INSTALLED_APPS:
+                call_command('migrate', fake=True)
         else:
             self.stderr.write('Site already initialized.\n')
             return
