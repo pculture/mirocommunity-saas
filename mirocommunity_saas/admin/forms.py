@@ -250,7 +250,7 @@ class PayPalCancellationForm(forms.Form):
         tier_info = SiteTierInfo.objects.get_current()
         self.initial.update({
             'cmd': '_subscr-find',
-            'alias': tier_info.subscription.payer_email
+            'alias': tier_info.subscription.receiver_email,
         })
 
 
