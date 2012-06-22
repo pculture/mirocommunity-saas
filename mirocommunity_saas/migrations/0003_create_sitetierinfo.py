@@ -6,6 +6,10 @@ from django.conf import settings
 from django.db import models
 
 class Migration(DataMigration):
+    depends_on = (
+        ("localtv", "0076_auto__del_field_feed_avoid_frontpage"),
+    )
+
     needed_by = (
         ("localtv", "0077_auto__del_tierinfo__del_field_sitesettings_tier_name"),
     )
@@ -22,7 +26,7 @@ class Migration(DataMigration):
         SiteTierInfo = orm['mirocommunity_saas.sitetierinfo']
 
         site = Site.objects.get(pk=settings.SITE_ID)
-        site_settings = SiteSettings.objects.get(site=site)
+        site_settings = SiteSettings.objects.get_or_create(site=site)[0]
         tier_info = TierInfo.objects.get_or_create(
                                                site_settings=site_settings)[0]
 
