@@ -35,5 +35,5 @@ That's it for now! Have any questions, ideas, or a great story to share about yo
 Email <support@mirocommunity.org>.
 
 P.S. A friendly reminder: your free trial with Miro Community will
-expire in 5 days, on {{ tier_info.get_next_due_date|date:"F j, Y" }}. Want to keep your account as is? 
+expire in 5 days, on {{ tier_info.subscription.free_trial_end|date:"F j, Y" }}. Want to keep your account as is? 
 You're all set. Want to change your account level? You can do so at any time on your [account page](http://{{ site.domain }}{% url localtv_admin_tier %}).

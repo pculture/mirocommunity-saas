@@ -281,6 +281,11 @@ def record_new_ipn(sender, **kwargs):
     tier_info = SiteTierInfo.objects.get_current()
     tier_info.ipn_set.add(sender)
     try:
-        del tier_info._subscription
+        del tier_info.subscriptions
+    except AttributeError:
+        pass
+
+    try:
+        del tier_info.subscription
     except AttributeError:
         pass

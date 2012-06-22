@@ -205,11 +205,12 @@ class DowngradeConfirmationViewUnitTestCase(BaseTestCase):
         """
         self.tier_info.enforce_payments = True
         self.tier_info.save()
-        self.tier_info._subscription = self.create_ipn()
 
         view = DowngradeConfirmationView()
         view.request = self.factory.get('/', data={'tier': 'tier1'})
-        data = view.get_context_data()
+        with mock.patch.object(self.tier_info, 'subscription',
+                               signup_or_modify=self.create_ipn()):
+            data = view.get_context_data()
         self.assertIsInstance(data.get('form'), PayPalCancellationForm)
         self.assertEqual(data.get('tier'), self.tier1)
         self.assertEqual(data.get('tier_info'), self.tier_info)

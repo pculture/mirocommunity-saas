@@ -66,7 +66,8 @@ class TierView(TemplateView):
         context = super(TierView, self).get_context_data(**kwargs)
         tier_info = SiteTierInfo.objects.get_current()
         forms = SortedDict()
-        for tier in tier_info.available_tiers.order_by('price'):
+        tiers = tier_info.available_tiers.order_by('price')
+        for tier in tiers:
             if tier.price == tier_info.tier.price:
                 forms[tier] = None
             elif tier.price < tier_info.tier.price:
@@ -77,7 +78,13 @@ class TierView(TemplateView):
                 else:
                     forms[tier] = TierChangeForm(initial={'tier': tier})
 
+        subscription_prices = set((subscr.price
+                                   for subscr in tier_info.subscriptions))
+        tiers_with_subscriptions = [tier for tier in tiers
+                                    if tier.price in subscription_prices]
         context.update({
+            'tiers_with_subscriptions': tiers_with_subscriptions,
+            'cancellation_form': PayPalCancellationForm(),
             'forms': forms,
             'tier_info': tier_info,
         })
@@ -101,7 +108,7 @@ class DowngradeConfirmationView(TemplateView):
         if tier_info.enforce_payments:
             if tier.price == 0:
                 if tier_info.subscription:
-                    form = PayPalCancellationForm(tier)
+                    form = PayPalCancellationForm()
                 else:
                     # If they don't have an active subscription, we can't very
                     # well cancel it.

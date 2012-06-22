@@ -59,9 +59,9 @@ class MailTestCase(BaseTestCase):
 
         trial_end = now + datetime.timedelta(2)
         self.assertEqual(len(mail.outbox), 0)
-        with mock.patch.object(tier_info, 'get_free_trial_end',
-                              return_value=trial_end):
-           send_free_trial_ending()
+        with mock.patch.object(tier_info, 'subscription',
+                               free_trial_end=trial_end):
+            send_free_trial_ending()
         self.assertEqual(len(mail.outbox), 0)
 
     def test_free_trial_ending__early(self):
@@ -75,9 +75,9 @@ class MailTestCase(BaseTestCase):
 
         trial_end = datetime.datetime.now() + datetime.timedelta(7)
         self.assertEqual(len(mail.outbox), 0)
-        with mock.patch.object(tier_info, 'get_free_trial_end',
-                              return_value=trial_end):
-           send_free_trial_ending()
+        with mock.patch.object(tier_info, 'subscription',
+                               free_trial_end=trial_end):
+            send_free_trial_ending()
         self.assertEqual(len(mail.outbox), 0)
 
     def test_free_trial_ending__late(self):
@@ -91,22 +91,22 @@ class MailTestCase(BaseTestCase):
 
         trial_end = datetime.datetime.now() - datetime.timedelta(2)
         self.assertEqual(len(mail.outbox), 0)
-        with mock.patch.object(tier_info, 'get_free_trial_end',
-                              return_value=trial_end):
-           send_free_trial_ending()
+        with mock.patch.object(tier_info, 'subscription',
+                               free_trial_end=trial_end):
+            send_free_trial_ending()
         self.assertEqual(len(mail.outbox), 0)
 
     def test_free_trial_ending__no_free_trial(self):
         """
-        If they're not in a free trial, the ending warning shouldn't be sent.
+        If there is no active subscription, the ending warning shouldn't be
+        sent.
 
         """
         tier = self.create_tier()
         tier_info = self.create_tier_info(tier)
 
         self.assertEqual(len(mail.outbox), 0)
-        with mock.patch.object(tier_info, 'get_free_trial_end',
-                              return_value=None):
+        with mock.patch.object(tier_info, 'subscription', None):
            send_free_trial_ending()
         self.assertEqual(len(mail.outbox), 0)
 
@@ -120,8 +120,8 @@ class MailTestCase(BaseTestCase):
 
         trial_end = datetime.datetime.now() + datetime.timedelta(2)
         self.assertEqual(len(mail.outbox), 0)
-        with mock.patch.object(tier_info, 'get_free_trial_end',
-                               return_value=trial_end):
+        with mock.patch.object(tier_info, 'subscription',
+                               mock.Mock(free_trial_end=trial_end)):
             send_free_trial_ending()
         self.assertEqual(len(mail.outbox), 1)
         self.assertTrue(tier_info.free_trial_ending_sent)

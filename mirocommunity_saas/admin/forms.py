@@ -244,13 +244,11 @@ class PayPalCancellationForm(forms.Form):
     cmd = forms.CharField(widget=forms.HiddenInput)
     alias = forms.CharField(widget=forms.HiddenInput)
 
-    def __init__(self, tier, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super(PayPalCancellationForm, self).__init__(*args, **kwargs)
-        self.tier = tier
-        tier_info = SiteTierInfo.objects.get_current()
         self.initial.update({
             'cmd': '_subscr-find',
-            'alias': tier_info.subscription.receiver_email,
+            'alias': RECEIVER_EMAIL,
         })
 
 
@@ -318,7 +316,8 @@ class PayPalSubscriptionForm(PayPalPaymentsForm):
                 'p1': '30',
                 't1': 'D'
             })
-        elif tier_info.subscription is not None:
-            # If they are currently subscribed, we only allow them to modify
-            # that subscription.
+        elif (tier_info.subscription is not None and
+              tier_info.subscription.price < tier_info.tier.price):
+            # If they are currently subscribed, and this is a downgrade, we
+            # only allow them to modify that subscription.
             self.initial['modify'] = '2'

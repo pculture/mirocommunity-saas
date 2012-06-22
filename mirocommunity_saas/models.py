@@ -22,6 +22,10 @@ from django.db import models
 from localtv.managers import SiteRelatedManager
 from paypal.standard.ipn.models import PayPalIPN
 
+from mirocommunity_saas.utils.functional import cached_property
+from mirocommunity_saas.utils.subscriptions import (get_subscriptions,
+                                                    get_current_subscription)
+
 
 class Tier(models.Model):
     #: Human-readable name.
@@ -114,139 +118,22 @@ class SiteTierInfo(models.Model):
     def __unicode__(self):
         return "Tier info for {0}".format(self.site.domain)
 
-    def get_subscription(self):
-        """
-        Returns ``None`` if there is no active subscription, or the most
-        recent ipn which started or modified the current active subscription.
+    @cached_property
+    def subscriptions(self):
+        return get_subscriptions(self.ipn_set.all())
 
-        """
-        subscriptions = self.ipn_set.filter(flag=False,
-                                            txn_type__in=('subscr_signup',
-                                                          'subscr_modify'))
-        try:
-            subscription = subscriptions.order_by('-created_at')[0]
-        except IndexError:
-            return None
-
-        try:
-            # We use eot as the ending since it signals when the subscription
-            # actually ends (as opposed to when it was canceled.)
-            self.ipn_set.get(subscr_id=subscription.subscr_id,
-                             flag=False,
-                             txn_type='subscr_eot')
-        except PayPalIPN.DoesNotExist:
-            return subscription
-        else:
-            return None
-
-    @property
+    @cached_property
     def subscription(self):
-        if not hasattr(self, '_subscription'):
-            self._subscription = self.get_subscription()
-        return self._subscription
+        return get_current_subscription(self.subscriptions)
 
-    def get_latest_payment(self):
-        """
-        Returns the latest payment on the current subscription, or ``None``
-        if there is no current subscription or if no payments have been made
-        on the current subscription.
-
-        """
-        if self.subscription is None:
-            return None
-
-        payments = self.ipn_set.filter(flag=False,
-                                       txn_type='subscr_payment',
-                                       subscr_id=self.subscription.subscr_id)
-        try:
-            return payments.order_by('-created_at')[0]
-        except IndexError:
-            return None
-
-    @property
-    def latest_payment(self):
-        if not hasattr(self, '_latest_payment'):
-            self._latest_payment = self.get_latest_payment()
-        return self._latest_payment
-
-    def _period_to_timedelta(self, period_str):
-        """
-        Converts an IPN period string to a timedelta representing that string.
-        """
-        period_len, period_unit = period_str.split(' ')
-        period_len = int(period_len)
-        if period_unit == 'D':
-            period_unit = datetime.timedelta(1)
-        else:
-            # We don't support other periods at the moment...
-            raise ValueError("Unknown period unit: {0}".format(period_unit))
-
-        return period_len * period_unit
-
-    def get_next_due_date(self):
-        """
-        Returns the datetime when the next payment is expected, or ``None`` if
-        there is not an active subscription. This does not take into account
-        whether payments are actually enforced, or whether the current tier is
-        paid.
-
-        """
-        if self.subscription is None:
-            return None
-
-        if self.latest_payment is None:
-            return self.get_free_trial_end()
-
-        period = self._period_to_timedelta(self.subscription.period3)
-        return self.latest_payment.payment_date + period
-
-    def get_free_trial_end(self):
-        """
-        Returns the datetime when the current subscription's free trial ends
-        or ended. If there is no current subscription, returns ``None``; if
-        the subscription does not include a free trial, returns the start of
-        the subscription. This does not take into account whether payments are
-        actually enforced, or whether the current tier is paid.
-
-        """
-        # If they have no signup, then the question is meaningless.
-        if self.subscription is None:
-            return None
-
-        start = self.subscription.subscr_date
-
-        # If there is no free trial, then return the start of the
-        # subscription.
-        if not self.subscription.period1:
-            return start
-
-        period = self._period_to_timedelta(self.subscription.period1)
-        return start + period
-
-    @property
-    def in_free_trial(self):
-        """
-        Returns ``True`` if the site is currently in a free trial and
-        ``False`` otherwise.  This does not take into account whether payments
-        are actually enforced, or whether the current tier is paid.
-
-        """
-        end = self.get_free_trial_end()
-
-        # If there's no subscription, there can't be a free trial.
-        if end is None:
-            return False
-
-        return datetime.datetime.now() < end
-
-    @property
+    @cached_property
     def had_subscription(self):
         """
         Returns ``True`` if the site has ever had a subscription and ``False``
         otherwise.
 
         """
-        return self.ipn_set.filter(flag=False,
-                                   txn_type__in=('subscr_signup',
-                                                 'subscr_modify')
-                          ).exists()
+        subscr_ipns = self.ipn_set.filter(flag=False,
+                                          txn_type__in=('subscr_signup',
+                                                        'subscr_modify'))
+        return self.subscriptions or subscr_ipns.exists()

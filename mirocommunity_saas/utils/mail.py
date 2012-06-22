@@ -191,12 +191,12 @@ def send_free_trial_ending():
     if tier_info.free_trial_ending_sent:
         return
 
-    # If they haven't started a free trial, don't send.
-    end = tier_info.get_free_trial_end()
-    if end is None:
+    # If they haven't started a subscription, don't send.
+    if tier_info.subscription is None:
         return
 
     # If it is not exactly within the right timespan, don't send the email.
+    end = tier_info.subscription.free_trial_end
     warn_after = end - datetime.timedelta(FREE_TRIAL_WARNING_DAYS)
     now = datetime.datetime.now()
     if not (now < end and now > warn_after):

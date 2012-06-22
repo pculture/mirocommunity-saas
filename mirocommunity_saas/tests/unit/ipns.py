@@ -159,7 +159,7 @@ class ExpirationHandlerTestCase(BaseTestCase):
         ipn = self.create_ipn()
         tier = self.create_tier()
         tier_info = self.create_tier_info(tier)
-        tier_info._subscription = object()
+        tier_info.subscription = object()
         expiration_handler(ipn)
         self.assertFalse(self._set_tier_by_payment.called)
         self._record_new_ipn.assert_called_with(ipn)
@@ -173,7 +173,7 @@ class ExpirationHandlerTestCase(BaseTestCase):
         ipn = self.create_ipn()
         tier = self.create_tier()
         tier_info = self.create_tier_info(tier)
-        tier_info._subscription = None
+        tier_info.subscription = None
         expiration_handler(ipn)
         self._record_new_ipn.assert_called_with(ipn)
         self._set_tier_by_payment.assert_called_with(0)
@@ -200,4 +200,4 @@ class RecordNewIpnTestCase(BaseTestCase):
         self.assertEqual(tier_info.subscription, None)
         record_new_ipn(ipn)
         self.assertEqual(ipn, tier_info.ipn_set.all()[0])
-        self.assertEqual(tier_info.subscription, ipn)
+        self.assertEqual(tier_info.subscription.signup_or_modify, ipn)

@@ -67,15 +67,24 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
         {% if tier == tier_info.tier %}
           <p>Your current plan</p>
         {% else %}
-          <form action="{{ form.action }}" method="{{ form.method }}">
-            {% for field in form.hidden_fields %}{{ field }}{% endfor %}
-            <button type="submit">
-              <em>{% if tier.price <= tier_info.tier.price %}
-                Switch to {{ tier.name }}{% else %}
-                Upgrade your account{% endif %}
-              </em>
-            </button>
-          </form>
+          {% if tier in tiers_with_subscriptions %}
+            <form action="{{ cancellation_form.action }}" method="{{ cancellation_form.method }}">
+              {% for field in cancellation_form.hidden_fields %}{{ field }}{% endfor %}
+              <button type="submit">
+                <em>Cancel old subscription</em>
+              </button>
+            </form>
+          {% else %}
+            <form action="{{ form.action }}" method="{{ form.method }}">
+              {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+              <button type="submit">
+                <em>{% if tier.price <= tier_info.tier.price %}
+                  Switch to {{ tier.name }}{% else %}
+                  Upgrade your account{% endif %}
+                </em>
+              </button>
+            </form>
+          {% endif %}
         {% endif %}
       </div>
     </div>

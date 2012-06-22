@@ -14,7 +14,7 @@ You currently have a {{ tier.name|capfirst }} account for http://{{ site.domain 
 * You can run advertising{% endif %}{% if tier.custom_themes %}
 * Fully custom templating{% endif %}
 
-{% if tier_info.in_free_trial %}Your 30-day free trial lasts until midnight on {{ tier_info.get_free_trial_end|date:"F j, Y" }}. If
+{% if tier_info.subscription.in_free_trial %}Your 30-day free trial lasts until midnight on {{ tier_info.subscription.free_trial_end|date:"F j, Y" }}. If
 you don't want to continue using Miro Community at a paid level, just switch to
 "basic" before the trial ends and you won't be charged (we'll email you 5 days
 before the trial ends to remind you). Otherwise, you'll pay just ${{ tier_info.tier.price }}/month
