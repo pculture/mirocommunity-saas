@@ -16,6 +16,7 @@
 # along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 
 import math
+from operator import attrgetter
 
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect, Http404
@@ -78,15 +79,17 @@ class TierView(TemplateView):
                 else:
                     forms[tier] = TierChangeForm(initial={'tier': tier})
 
-        # We want to note all the tiers that have currently-active
-        # subscriptions so that we can alert the user to cancel them.
-        subscription_prices = set((subscr.price
-                                   for subscr in tier_info.subscriptions
-                                   if not subscr.is_cancelled))
-        tiers_with_subscriptions = [tier for tier in tiers
-                                    if tier.price in subscription_prices]
+        # Here we build a list of prices of current subscriptions, sorted
+        # by the date the subscription started. This lets us check in the
+        # template whether a tier's subscription should be considered
+        # "upcoming" or "old".
+        subscriptions = sorted([subscr for subscr in tier_info.subscriptions
+                                if not subscr.is_cancelled],
+                               key=lambda s: s.signup_or_modify.subscr_date,
+                               reverse=True)
+        subscription_prices = [subscr.price for subscr in subscriptions]
         context.update({
-            'tiers_with_subscriptions': tiers_with_subscriptions,
+            'subscription_prices': subscription_prices,
             'cancellation_form': PayPalCancellationForm(),
             'forms': forms,
             'tier_info': tier_info,
