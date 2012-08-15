@@ -70,13 +70,14 @@ class TierView(TemplateView):
         for tier in tiers:
             if tier.price == tier_info.tier.price:
                 forms[tier] = None
-            elif tier.price < tier_info.tier.price:
-                forms[tier] = DowngradeConfirmationForm(tier)
-            else:
+            elif (tier.price > tier_info.tier.price or
+                  tier_info.subscription.is_cancelled):
                 if tier_info.enforce_payments:
                     forms[tier] = PayPalSubscriptionForm(tier)
                 else:
                     forms[tier] = TierChangeForm(initial={'tier': tier})
+            else:
+                forms[tier] = DowngradeConfirmationForm(tier)
 
         # We want to note all the tiers that have currently-active
         # subscriptions so that we can alert the user to cancel them.
