@@ -78,8 +78,11 @@ class TierView(TemplateView):
                 else:
                     forms[tier] = TierChangeForm(initial={'tier': tier})
 
+        # We want to note all the tiers that have currently-active
+        # subscriptions so that we can alert the user to cancel them.
         subscription_prices = set((subscr.price
-                                   for subscr in tier_info.subscriptions))
+                                   for subscr in tier_info.subscriptions
+                                   if not subscr.is_cancelled))
         tiers_with_subscriptions = [tier for tier in tiers
                                     if tier.price in subscription_prices]
         context.update({
