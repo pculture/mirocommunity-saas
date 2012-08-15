@@ -48,7 +48,7 @@ class Subscription(object):
     """
     def __init__(self, signup_or_modify, payments, cancel=None):
         self.signup_or_modify = signup_or_modify
-        self.payments = payments.order_by('-created_at')
+        self.payments = payments.order_by('-payment_date')
         self.cancel = cancel
 
     @property
@@ -63,7 +63,8 @@ class Subscription(object):
         the subscription.
 
         """
-        start = self.signup_or_modify.subscr_date
+        start = (self.signup_or_modify.subscr_effective or
+                 self.signup_or_modify.subscr_date)
 
         if not self.signup_or_modify.period1:
             return start
@@ -156,7 +157,7 @@ def get_current_subscription(subscriptions):
         return None
     # Secondary sort: date created.
     subscriptions = sorted(subscriptions,
-                           key=lambda s: s.signup_or_modify.created_at,
+                           key=lambda s: s.signup_or_modify.subscr_date,
                            reverse=True)
     # Primary sort: price.
     subscriptions.sort(key=attrgetter('price'))

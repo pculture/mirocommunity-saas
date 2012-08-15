@@ -316,9 +316,18 @@ class PayPalSubscriptionForm(PayPalPaymentsForm):
                 'p1': '30',
                 't1': 'D'
             })
-        elif (tier_info.subscription is not None and
-              not tier_info.subscription.is_cancelled and
-              tier_info.subscription.price < tier_info.tier.price):
-            # If they are currently subscribed, and this is a downgrade, we
-            # only allow them to modify that subscription.
-            self.initial['modify'] = '2'
+        elif tier_info.subscription is not None:
+            if (not tier_info.subscription.is_cancelled and
+                tier_info.subscription.price < tier_info.tier.price):
+                # If the current subscription is uncancelled and this is
+                # a downgrade, do this as a subscription modification.
+                self.initial['modify'] = '2'
+            # Any time they are currently subscribed, delay payment
+            # until the end of their current subscription by giving a
+            # "free trial" until then.
+            next_due_date = tier_info.subscription.next_due_date
+            self.initial.update({
+                'a1': '0',
+                'p1': str((next_due_date - datetime.datetime.now()).days),
+                't1': 'D',
+            })
