@@ -160,5 +160,6 @@ def get_current_subscription(subscriptions):
                            key=lambda s: s.signup_or_modify.subscr_date,
                            reverse=True)
     # Primary sort: price.
-    subscriptions.sort(key=attrgetter('price'))
+    subscriptions.sort(key=attrgetter('price'),
+                       reverse=True)
     return subscriptions[0]
