@@ -317,6 +317,7 @@ class PayPalSubscriptionForm(PayPalPaymentsForm):
                 't1': 'D'
             })
         elif (tier_info.subscription is not None and
+              not tier_info.subscription.is_cancelled and
               tier_info.subscription.price < tier_info.tier.price):
             # If they are currently subscribed, and this is a downgrade, we
             # only allow them to modify that subscription.
