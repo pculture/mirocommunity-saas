@@ -69,9 +69,7 @@ class TierView(TemplateView):
         forms = SortedDict()
         tiers = tier_info.available_tiers.order_by('price')
         for tier in tiers:
-            if tier.price == tier_info.tier.price:
-                forms[tier] = None
-            elif tier.price < tier_info.tier.price:
+            if tier.price < tier_info.tier.price:
                 forms[tier] = DowngradeConfirmationForm(tier)
             else:
                 if tier_info.enforce_payments:
