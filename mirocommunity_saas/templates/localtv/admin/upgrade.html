@@ -64,7 +64,7 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
         </ul>
       </div>
       <div class="ft">
-        {% if tier.price == subscription_prices.0 %}
+        {% if tier.price == subscription_prices.0 or tier.price == 0 and not subscription_prices %}
           {% if tier == tier_info.tier %}
             <p>Your current plan</p>
           {% else %}
