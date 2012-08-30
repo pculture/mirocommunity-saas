@@ -1,1 +1,0 @@
-Just a heads up that {{ site.domain }}{% if payment %} was automatically{% endif %} switched from {{ old_tier.name }} to {{ tier.name }}.

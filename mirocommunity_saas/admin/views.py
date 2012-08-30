@@ -33,7 +33,8 @@ from mirocommunity_saas.admin.forms import (TierChangeForm,
 from mirocommunity_saas.models import SiteTierInfo, Tier
 from mirocommunity_saas.utils.tiers import (check_tier_change_token,
                                             admins_to_demote,
-                                            videos_to_deactivate)
+                                            videos_to_deactivate,
+                                            set_tier)
 
 
 class TierIndexView(IndexView):
@@ -66,6 +67,18 @@ class TierView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super(TierView, self).get_context_data(**kwargs)
         tier_info = SiteTierInfo.objects.get_current()
+        price = (0 if tier_info.subscription is None
+                 else tier_info.subscription.signup_or_modify.amount3)
+
+        try:
+            set_tier(price)
+        except Tier.DoesNotExist:
+            logging.error('No tier matching current subscription.',
+                          exc_info=True)
+        except Tier.MultipleObjectsReturned:
+            logging.error('Multiple tiers found matching current'
+                          'subscription.', exc_info=True)
+
         forms = SortedDict()
         tiers = tier_info.available_tiers.order_by('price')
         for tier in tiers:

@@ -15,6 +15,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
+
 from django.conf import settings
 from django.contrib.sites.models import Site
 from django.dispatch import receiver
@@ -183,95 +185,39 @@ def check_submission_approval(sender, **kwargs):
         sender.save()
 
 
-def set_tier_by_payment(payment):
+def set_tier(price):
     """
-    Given a payment amount, checks whether that payment amount matches the
-    price of the current tier. If so, does nothing. Otherwise, tries to set
-    and enforce an available tier with that price, and emails the site devs if
-    it works or if something unexpected happens (like the tier not existing).
+    Given a price, ensures that it matches the price of the current tier.
+    If not, tries to set and enforce an available tier with that price,
+    and emails the site devs if it works or if something unexpected
+    happens (like the tier not existing).
+
     """
     tier_info = SiteTierInfo.objects.get_current()
-    tier = tier_info.tier
 
     # We only need to take action if the payment doesn't match the current
     # tier's price.
-    if payment != tier.price:
-        try:
-            new_tier = tier_info.available_tiers.get(price=payment)
-        except Tier.DoesNotExist:
-            # Email the site managers to let them know we got a payment for a
-            # tier that doesn't seem to exist, and stop processing
-            # immediately.
-            send_mail('mirocommunity_saas/mail/invalid_payment/subject.txt',
-                      'mirocommunity_saas/mail/invalid_payment/body.md',
-                      to=settings.MANAGERS,
-                      extra_context={
-                        'not_found': True,
-                        'payment': payment,
-                      })
-            return
-        except Tier.MultipleObjectsReturned:
-            # Email the site managers to let them know we got an ambiguous
-            # payment and stop processing immediately. At the moment, no
-            # ambiguous payments are possible, but we should still catch the
-            # case.
-            send_mail('mirocommunity_saas/mail/invalid_payment/subject.txt',
-                      'mirocommunity_saas/mail/invalid_payment/body.md',
-                      to=settings.MANAGERS,
-                      extra_context={
-                        'multiple_found': True,
-                        'payment': payment,
-                      })
-            return
-
-        tier_info.tier = new_tier
+    if price != tier_info.tier.price:
+        old_tier = tier_info.tier
+        # Let errors propagate.
+        tier_info.tier = tier_info.available_tiers.get(price=price)
         tier_info.save()
-        enforce_tier(new_tier)
-        # Email site devs to let them know about the change.
-        send_mail('mirocommunity_saas/mail/tier_change/dev_subject.txt',
-                  'mirocommunity_saas/mail/tier_change/dev_body.md',
+        enforce_tier(tier_info.tier)
+        # Email site managers to let them know about the change.
+        send_mail('mirocommunity_saas/mail/tier_change/subject.txt',
+                  'mirocommunity_saas/mail/tier_change/body.md',
                   to=settings.MANAGERS,
                   extra_context={
-                    'old_tier': tier,
-                    'payment': payment,
+                    'old_tier': old_tier,
                   })
 
 
 @receiver(payment_was_successful)
-def payment_handler(sender, **kwargs):
-    """
-    Sets the tier according to the ipn payment.
-
-    """
-    # mc_gross is the current field for the total payment (without txn fees
-    # taken out). It replaces the older payment_gross field.
-    set_tier_by_payment(sender.mc_gross)
-
-
-@receiver(subscription_eot)
-def expiration_handler(sender, **kwargs):
-    """
-    If a subscription expires (for example, at the end of the month after a
-    cancellation) then we should reset to the basic (i.e. free) tier.
-
-    """
-    # First, make sure that the ipn is added.
-    record_new_ipn(sender, **kwargs)
-    # Only continue for non-flagged ipns.
-    if not sender.flag:
-        # Only continue if the user doesn't have a current active
-        # subscription, which could happen if they cancelled an old
-        # subscription and then started a new one before the old one expired.
-        tier_info = SiteTierInfo.objects.get_current()
-        if tier_info.subscription is None:
-            set_tier_by_payment(0)
-
-
-@receiver(payment_was_successful)
 @receiver(payment_was_flagged)
-@receiver(subscription_cancel)
-@receiver(subscription_modify)
 @receiver(subscription_signup)
+@receiver(subscription_modify)
+@receiver(subscription_cancel)
+@receiver(subscription_eot)
 def record_new_ipn(sender, **kwargs):
     """
     Adds the sending ipn to the ``ipn_set`` of the current ``SiteTierInfo``
@@ -280,12 +226,25 @@ def record_new_ipn(sender, **kwargs):
     """
     tier_info = SiteTierInfo.objects.get_current()
     tier_info.ipn_set.add(sender)
-    try:
-        del tier_info.subscriptions
-    except AttributeError:
-        pass
 
-    try:
-        del tier_info.subscription
-    except AttributeError:
-        pass
+    if not sender.flag:
+        try:
+            del tier_info.subscriptions
+        except AttributeError:
+            pass
+
+        try:
+            del tier_info.subscription
+        except AttributeError:
+            pass
+
+        price = (0 if tier_info.subscription is None
+                 else tier_info.subscription.signup_or_modify.amount3)
+        try:
+            set_tier(price)
+        except Tier.DoesNotExist:
+            logging.error('No tier matching current subscription.',
+                          exc_info=True)
+        except Tier.MultipleObjectsReturned:
+            logging.error('Multiple tiers found matching current'
+                          'subscription.', exc_info=True)

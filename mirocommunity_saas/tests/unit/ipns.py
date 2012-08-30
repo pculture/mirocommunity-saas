@@ -26,9 +26,7 @@ from paypal.standard.ipn.signals import (payment_was_successful,
                                          subscription_eot)
 
 from mirocommunity_saas.tests.base import BaseTestCase
-from mirocommunity_saas.utils.tiers import (set_tier_by_payment,
-                                            payment_handler,
-                                            expiration_handler,
+from mirocommunity_saas.utils.tiers import (set_tier,
                                             record_new_ipn)
 
 
@@ -52,7 +50,7 @@ class SetTierByPaymentTestCase(BaseTestCase):
         self.assertEqual(len(mail.outbox), 0)
         self.assertEqual(self.tier_info.tier, tier)
 
-        set_tier_by_payment(tier.price)
+        set_tier(tier.price)
 
         self.assertEqual(len(mail.outbox), 0)
         self.assertEqual(self.tier_info.tier, tier)
@@ -68,7 +66,7 @@ class SetTierByPaymentTestCase(BaseTestCase):
         self.assertEqual(len(mail.outbox), 0)
         self.assertNotEqual(self.tier_info.tier, tier)
 
-        set_tier_by_payment(tier.price)
+        set_tier(tier.price)
 
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ['manager@localhost'])
@@ -77,106 +75,26 @@ class SetTierByPaymentTestCase(BaseTestCase):
 
     def test_invalid_change(self):
         """
-        If the change is invalid, nothing should happen other than notifying
-        the site devs.
+        If the change is invalid, nothing should happen.
 
         """
         tier = self.tier_info.tier
         self.assertEqual(len(mail.outbox), 0)
 
-        set_tier_by_payment(40)
+        set_tier(40)
 
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].to, ['manager@localhost'])
+        self.assertEqual(len(mail.outbox), 0)
         self.assertEqual(self.tier_info.tier, tier)
         self.assertFalse(self._enforce_tier.called)
 
         duplicate_tier = self.create_tier(price=30, slug='tier30-2')
         self.tier_info.available_tiers.add(duplicate_tier)
 
-        set_tier_by_payment(30)
+        set_tier(30)
 
-        self.assertEqual(len(mail.outbox), 2)
-        self.assertEqual(mail.outbox[0].to, ['manager@localhost'])
+        self.assertEqual(len(mail.outbox), 0)
         self.assertEqual(self.tier_info.tier, tier)
         self.assertFalse(self._enforce_tier.called)
-
-
-class PaymentHandlerTestCase(BaseTestCase):
-    def test_receiver(self):
-        """
-        payment_handler should be a receiver for payment_was_successful.
-        """
-        self.assertTrue(payment_handler in
-                        payment_was_successful._live_receivers(None))
-
-    def test(self):
-        """
-        Successful payments should simply call set_tier_by_payment with the
-        amount paid.
-
-        """
-        ipn = self.create_ipn(mc_gross=20)
-        with patch('mirocommunity_saas.utils.tiers.'
-                   'set_tier_by_payment') as mock:
-            payment_handler(ipn)
-            mock.assert_called_with(20)
-
-
-class ExpirationHandlerTestCase(BaseTestCase):
-    def setUp(self):
-        super(ExpirationHandlerTestCase, self).setUp()
-        patcher = patch('mirocommunity_saas.utils.tiers.set_tier_by_payment')
-        self._set_tier_by_payment = patcher.start()
-        self.addCleanup(patcher.stop)
-        patcher = patch('mirocommunity_saas.utils.tiers.record_new_ipn')
-        self._record_new_ipn = patcher.start()
-        self.addCleanup(patcher.stop)
-
-    def test_receiver(self):
-        """expiration_handler should be a receiver for subscription_eot"""
-        self.assertTrue(expiration_handler in
-                        subscription_eot._live_receivers(None))
-
-    def test_flagged(self):
-        """
-        If the ipn is flagged, the tier shouldn't be set, but the new ipn
-        should be recorded.
-
-        """
-        ipn = self.create_ipn(flag=True)
-        expiration_handler(ipn)
-        self.assertFalse(self._set_tier_by_payment.called)
-        self._record_new_ipn.assert_called_with(ipn)
-
-    def test_active_subscription(self):
-        """
-        If the new ipn (an expiration) leaves the subscriber with an active
-        subscription, they may have started a new subscription already; we
-        shouldn't do anything. (Except, of course, record the ipn.)
-
-        """
-        ipn = self.create_ipn()
-        tier = self.create_tier()
-        tier_info = self.create_tier_info(tier)
-        tier_info.subscription = object()
-        expiration_handler(ipn)
-        self.assertFalse(self._set_tier_by_payment.called)
-        self._record_new_ipn.assert_called_with(ipn)
-
-    def test_no_problems(self):
-        """
-        If the new ipn isn't flagged and doesn't leave the subscriber with an
-        active subscription, they should be set to the free tier.
-
-        """
-        ipn = self.create_ipn()
-        tier = self.create_tier()
-        tier_info = self.create_tier_info(tier)
-        tier_info.subscription = None
-        expiration_handler(ipn)
-        self._record_new_ipn.assert_called_with(ipn)
-        self._set_tier_by_payment.assert_called_with(0)
 
 
 class RecordNewIpnTestCase(BaseTestCase):
@@ -188,10 +106,8 @@ class RecordNewIpnTestCase(BaseTestCase):
         """
         for signal in (payment_was_successful, payment_was_flagged,
                        subscription_cancel, subscription_modify,
-                       subscription_signup):
+                       subscription_signup, subscription_eot):
             self.assertTrue(record_new_ipn in signal._live_receivers(None))
-        self.assertFalse(record_new_ipn in
-                         subscription_eot._live_receivers(None))
 
     def test(self):
         ipn = self.create_ipn(txn_type="subscr_signup")
