@@ -67,17 +67,18 @@ class TierView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super(TierView, self).get_context_data(**kwargs)
         tier_info = SiteTierInfo.objects.get_current()
-        price = (0 if tier_info.subscription is None
-                 else tier_info.subscription.signup_or_modify.amount3)
 
-        try:
-            set_tier(price)
-        except Tier.DoesNotExist:
-            logging.error('No tier matching current subscription.',
-                          exc_info=True)
-        except Tier.MultipleObjectsReturned:
-            logging.error('Multiple tiers found matching current'
-                          'subscription.', exc_info=True)
+        if tier_info.enforce_payments:
+            price = (0 if tier_info.subscription is None
+                     else tier_info.subscription.signup_or_modify.amount3)
+            try:
+                set_tier(price)
+            except Tier.DoesNotExist:
+                logging.error('No tier matching current subscription.',
+                              exc_info=True)
+            except Tier.MultipleObjectsReturned:
+                logging.error('Multiple tiers found matching current'
+                              'subscription.', exc_info=True)
 
         forms = SortedDict()
         tiers = tier_info.available_tiers.order_by('price')
