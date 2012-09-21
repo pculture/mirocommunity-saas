@@ -41,7 +41,7 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
     {% block styles %}
         {#% compress css %#}
             <link rel="stylesheet" type="text/css" href="{% get_static_url 'localtv/front/stylesheets/screen.css' bundled %}" media="screen" />
-            {% if site_settings.css and site_settings.tier_info.tier.custom_css %}
+            {% if site_settings.css and site_settings.site.tier_info.tier.custom_css %}
                 <style type="text/css">
                     {{ site_settings.css|safe }}
                 </style>
