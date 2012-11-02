@@ -76,6 +76,12 @@ class BaseTestCase(MCBaseTestCase):
         for ipn in ipns:
             tier_info.ipn_set.add(ipn)
 
+        if tier_info.enforce_payments:
+            tier_ipn = self.create_ipn(txn_type='subscr_signup',
+                                       amount3=tier.price,
+                                       subscr_date=datetime.datetime.now())
+            tier_info.ipn_set.add(tier_ipn)
+
         return tier_info
 
     def create_theme(self, name='Test', site_id=settings.SITE_ID,

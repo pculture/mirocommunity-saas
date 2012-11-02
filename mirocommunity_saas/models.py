@@ -55,10 +55,6 @@ class Tier(models.Model):
     #: Whether users at this level are allowed to run advertising.
     ads_allowed = models.BooleanField(default=False)
 
-    #: Whether the crappy newsletter feature is enabled for this tier.
-    #: Included for completeness.
-    newsletter = models.BooleanField(default=False)
-
     def __unicode__(self):
         return u"{name}: {price}".format(name=self.name, price=self.price)
 

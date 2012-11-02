@@ -20,7 +20,7 @@ import zipfile
 
 from django.core.urlresolvers import reverse
 from django.http import Http404
-from localtv.models import NewsletterSettings, SiteSettings, Video
+from localtv.models import SiteSettings, Video
 import mock
 from uploadtemplate.models import Theme
 
@@ -28,42 +28,8 @@ from mirocommunity_saas.admin.approve_reject_views import (approve_video,
                                                        feature_video,
                                                        _video_limit_wrapper,
                                                        approve_all)
-from mirocommunity_saas.admin.design_views import newsletter_settings
 from mirocommunity_saas.admin.livesearch_views import approve
 from mirocommunity_saas.tests.base import BaseTestCase
-
-
-class NewsletterAdminTestCase(BaseTestCase):
-    def setUp(self):
-        """Make sure that a newsletter exists."""
-        settings = SiteSettings.objects.get_current()
-        NewsletterSettings.objects.create(site_settings=settings,
-                                          status=NewsletterSettings.FEATURED)
-        BaseTestCase.setUp(self)
-
-    def test_newsletter_settings(self):
-        """
-        The newsletter settings view should only be accessible if permitted
-        by the current tier.
-
-        """
-        user = self.create_user(username='admin')
-        settings = SiteSettings.objects.get_current()
-        settings.admins.add(user)
-
-        request = self.factory.get('/', user=user)
-        self.assertRaises(Http404, newsletter_settings, request)
-
-        tier = self.create_tier(newsletter=True)
-        self.create_tier_info(tier)
-
-        response = newsletter_settings(request)
-        self.assertEqual(response.status_code, 200)
-
-        tier.newsletter = False
-        tier.save()
-
-        self.assertRaises(Http404, newsletter_settings, request)
 
 
 class VideoLimitWrapperTestCase(BaseTestCase):

@@ -39,7 +39,7 @@ class TierViewUnitTestCase(BaseTestCase):
 
     def test_get_context_data__tier1(self):
         """
-        Context data should include forms for the higher tiers which are not
+        Context data should include forms for all tiers which are not
         paypal-based.
 
         """
@@ -53,14 +53,13 @@ class TierViewUnitTestCase(BaseTestCase):
         self.assertEqual(forms.keys()[0], self.tier1)
         self.assertEqual(forms.keys()[1], self.tier2)
         self.assertEqual(forms.keys()[2], self.tier3)
-        self.assertTrue(forms.values()[0] is None)
+        self.assertIsInstance(forms.values()[0], TierChangeForm)
         self.assertIsInstance(forms.values()[1], TierChangeForm)
         self.assertIsInstance(forms.values()[2], TierChangeForm)
 
     def test_get_context_data__tier1__enforced(self):
         """
-        Context data should include forms for the higher tiers which are
-        paypal-based.
+        Context data should include paypal-based forms for all tiers.
 
         """
         tier_info = self.create_tier_info(self.tier1,
@@ -73,14 +72,14 @@ class TierViewUnitTestCase(BaseTestCase):
         self.assertEqual(forms.keys()[0], self.tier1)
         self.assertEqual(forms.keys()[1], self.tier2)
         self.assertEqual(forms.keys()[2], self.tier3)
-        self.assertTrue(forms.values()[0] is None)
+        self.assertIsInstance(forms.values()[0], PayPalSubscriptionForm)
         self.assertIsInstance(forms.values()[1], PayPalSubscriptionForm)
         self.assertIsInstance(forms.values()[2], PayPalSubscriptionForm)
 
     def test_get_context_data__tier2(self):
         """
         If the tier2 is selected, the context data should include a downgrade
-        confirmation form for tier1 and a tier change form for tier3.
+        confirmation form for tier1 and a tier change form for tier2 and tier3.
 
         """
         tier_info = self.create_tier_info(self.tier2,
@@ -94,14 +93,14 @@ class TierViewUnitTestCase(BaseTestCase):
         self.assertEqual(forms.keys()[1], self.tier2)
         self.assertEqual(forms.keys()[2], self.tier3)
         self.assertIsInstance(forms.values()[0], DowngradeConfirmationForm)
-        self.assertTrue(forms.values()[1] is None)
+        self.assertIsInstance(forms.values()[1], TierChangeForm)
         self.assertIsInstance(forms.values()[2], TierChangeForm)
 
     def test_get_context_data__tier2__enforced(self):
         """
         If the tier2 is selected and payments are enforced, the context data
-        should include a downgrade confirmation form for tier1 and a tier
-        change form for tier3.
+        should include a downgrade confirmation form for tier1 and tier2 and
+        a tier change form for tier3.
 
         """
         tier_info = self.create_tier_info(self.tier2,
@@ -115,13 +114,34 @@ class TierViewUnitTestCase(BaseTestCase):
         self.assertEqual(forms.keys()[1], self.tier2)
         self.assertEqual(forms.keys()[2], self.tier3)
         self.assertIsInstance(forms.values()[0], DowngradeConfirmationForm)
-        self.assertTrue(forms.values()[1] is None)
+        self.assertIsInstance(forms.values()[1], PayPalSubscriptionForm)
         self.assertIsInstance(forms.values()[2], PayPalSubscriptionForm)
 
     def test_get_context_data__tier3(self):
         """
         If the tier3 is selected, the context data should include a downgrade
-        confirmation form for tier1 and tier2.
+        confirmation form for tier1 and tier2 and a tier change form for tier3.
+
+        """
+        tier_info = self.create_tier_info(self.tier3,
+                                          available_tiers=[self.tier1,
+                                                           self.tier2],
+                                          enforce_payments=False)
+        context_data = TierView().get_context_data()
+        self.assertEqual(context_data['tier_info'], tier_info)
+        forms = context_data['forms']
+        self.assertEqual(forms.keys()[0], self.tier1)
+        self.assertEqual(forms.keys()[1], self.tier2)
+        self.assertEqual(forms.keys()[2], self.tier3)
+        self.assertIsInstance(forms.values()[0], DowngradeConfirmationForm)
+        self.assertIsInstance(forms.values()[1], DowngradeConfirmationForm)
+        self.assertIsInstance(forms.values()[2], TierChangeForm)
+
+    def test_get_context_data__tier3__enforced(self):
+        """
+        If the tier3 is selected and payments are enforced, the context data
+        should include a downgrade confirmation form for tier1 and tier2 and
+        a tier change form for tier3.
 
         """
         tier_info = self.create_tier_info(self.tier3,
@@ -136,7 +156,7 @@ class TierViewUnitTestCase(BaseTestCase):
         self.assertEqual(forms.keys()[2], self.tier3)
         self.assertIsInstance(forms.values()[0], DowngradeConfirmationForm)
         self.assertIsInstance(forms.values()[1], DowngradeConfirmationForm)
-        self.assertTrue(forms.values()[2] is None)
+        self.assertIsInstance(forms.values()[2], PayPalSubscriptionForm)
 
 
 class DowngradeConfirmationViewUnitTestCase(BaseTestCase):

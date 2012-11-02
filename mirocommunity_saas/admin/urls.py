@@ -51,12 +51,6 @@ urlpatterns += patterns('mirocommunity_saas.admin.approve_reject_views',
         name='localtv_admin_approve_all'),
 )
 
-# Newsletter overrides
-urlpatterns += patterns('mirocommunity_saas.admin.design_views',
-    url(r'^settings/newsletter/$', 'newsletter_settings',
-        name='localtv_admin_newsletter_settings')
-)
-
 # Live search overrides
 urlpatterns += patterns('mirocommunity_saas.admin.livesearch_views',
     url(r'^add/approve/$', 'approve',

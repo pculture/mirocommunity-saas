@@ -25,6 +25,7 @@ from paypal.standard.ipn.signals import (payment_was_successful,
                                          subscription_cancel,
                                          subscription_eot)
 
+from mirocommunity_saas.models import Tier
 from mirocommunity_saas.tests.base import BaseTestCase
 from mirocommunity_saas.utils.tiers import (set_tier,
                                             record_new_ipn)
@@ -75,22 +76,33 @@ class SetTierByPaymentTestCase(BaseTestCase):
 
     def test_invalid_change(self):
         """
-        If the change is invalid, nothing should happen.
+        If the change is invalid, Tier.DoesNotExist should be raised.
 
         """
         tier = self.tier_info.tier
         self.assertEqual(len(mail.outbox), 0)
 
-        set_tier(40)
+        with self.assertRaises(Tier.DoesNotExist):
+            set_tier(40)
 
         self.assertEqual(len(mail.outbox), 0)
         self.assertEqual(self.tier_info.tier, tier)
         self.assertFalse(self._enforce_tier.called)
 
+    def test_duplicate_change(self):
+        """
+        If the price matches the current tier, Tier.MultipleObjectsReturned
+        should be raised.
+
+        """
+        tier = self.tier_info.tier
+        self.assertEqual(len(mail.outbox), 0)
+
         duplicate_tier = self.create_tier(price=30, slug='tier30-2')
         self.tier_info.available_tiers.add(duplicate_tier)
 
-        set_tier(30)
+        with self.assertRaises(Tier.MultipleObjectsReturned):
+            set_tier(30)
 
         self.assertEqual(len(mail.outbox), 0)
         self.assertEqual(self.tier_info.tier, tier)

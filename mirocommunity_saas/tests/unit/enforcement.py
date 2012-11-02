@@ -31,7 +31,7 @@ from django.forms.formsets import TOTAL_FORM_COUNT, INITIAL_FORM_COUNT
 from django.forms.models import model_to_dict
 from django.http import Http404
 from django.test.utils import override_settings
-from localtv.models import NewsletterSettings, SiteSettings, Video
+from localtv.models import SiteSettings, Video
 from uploadtemplate.models import Theme
 
 from mirocommunity_saas.admin.forms import (EditSettingsForm, AuthorForm,
@@ -42,35 +42,6 @@ from mirocommunity_saas.utils.tiers import (admins_to_demote,
                                             enforce_tier,
                                             limit_import_approvals,
                                             check_submission_approval)
-from mirocommunity_saas.views import newsletter
-
-
-class NewsletterTestCase(BaseTestCase):
-    def setUp(self):
-        """Make sure that a newsletter exists."""
-        site_settings = SiteSettings.objects.get_current()
-        NewsletterSettings.objects.create(site_settings=site_settings,
-                                          status=NewsletterSettings.FEATURED)
-        BaseTestCase.setUp(self)
-
-    def test_newsletter_view(self):
-        """
-        The newsletter view should only be accessible if permitted by the
-        current tier.
-
-        """
-        request = self.factory.get('/')
-        self.assertRaises(Http404, newsletter, request)
-        tier = self.create_tier(newsletter=True)
-        self.create_tier_info(tier)
-
-        response = newsletter(request)
-        self.assertEqual(response.status_code, 200)
-
-        tier.newsletter = False
-        tier.save()
-
-        self.assertRaises(Http404, newsletter, request)
 
 
 class SettingsFormTestCase(BaseTestCase):
