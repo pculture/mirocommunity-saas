@@ -1,32 +1,23 @@
 # -*- coding: utf-8 -*-
 import datetime
-import json
-import os
 from south.db import db
-from south.v2 import DataMigration
-from django.core.management import call_command
+from south.v2 import SchemaMigration
 from django.db import models
 
-import mirocommunity_saas
 
-class Migration(DataMigration):
+class Migration(SchemaMigration):
 
     def forwards(self, orm):
-        "Write your forwards methods here."
-        fixture_path = os.path.join(os.path.dirname(mirocommunity_saas.__file__),
-                                    'fixtures', 'tiers.json')
-        fixture = open(fixture_path, 'r')
-        tiers_data = json.load(fixture)
-        Tier = orm['mirocommunity_saas.tier']
-        for tier_data in tiers_data:
-            tier = Tier(pk=tier_data['pk'])
-            for field, value in tier_data['fields'].iteritems():
-                setattr(tier, field, value)
-            tier.save()
+        # Deleting field 'Tier.newsletter'
+        db.delete_column('mirocommunity_saas_tier', 'newsletter')
+
 
     def backwards(self, orm):
-        "Write your backwards methods here."
-        pass
+        # Adding field 'Tier.newsletter'
+        db.add_column('mirocommunity_saas_tier', 'newsletter',
+                      self.gf('django.db.models.fields.BooleanField')(default=False),
+                      keep_default=False)
+
 
     models = {
         'ipn.paypalipn': {
@@ -167,7 +158,6 @@ class Migration(DataMigration):
             'custom_themes': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'name': ('django.db.models.fields.CharField', [], {'max_length': '30'}),
-            'newsletter': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'price': ('django.db.models.fields.PositiveIntegerField', [], {'default': '0'}),
             'slug': ('django.db.models.fields.SlugField', [], {'unique': 'True', 'max_length': '30'}),
             'video_limit': ('django.db.models.fields.PositiveIntegerField', [], {'null': 'True', 'blank': 'True'})
@@ -181,4 +171,3 @@ class Migration(DataMigration):
     }
 
     complete_apps = ['mirocommunity_saas']
-    symmetrical = True
