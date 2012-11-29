@@ -141,13 +141,13 @@ def get_subscriptions(ipn_set):
     subscription_dict = {}
 
     for ipn in signups_or_modifies:
-        subscription_dict.setdefault(ipn.txn_id, {})['signup_or_modify'] = ipn
+        subscription_dict.setdefault(ipn.subscr_id, {})['signup_or_modify'] = ipn
 
     for ipn in payments:
-        subscription_dict.setdefault(ipn.txn_id, {}).setdefault('payments', []).append(ipn)
+        subscription_dict.setdefault(ipn.subscr_id, {}).setdefault('payments', []).append(ipn)
 
     for ipn in cancels:
-        subscription_dict.setdefault(ipn.txn_id, {})['cancel'] = ipn
+        subscription_dict.setdefault(ipn.subscr_id, {})['cancel'] = ipn
 
     subscriptions = []
     for kwargs in subscription_dict.itervalues():
