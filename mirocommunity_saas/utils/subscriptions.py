@@ -18,6 +18,8 @@
 import datetime
 from operator import attrgetter
 
+from paypal.standard.ipn.models import PayPalIPN
+
 
 def _period_to_timedelta(period_str):
     """
@@ -46,14 +48,23 @@ class Subscription(object):
     :param cancel: The subscr_cancel ipn for this subscription, if any.
 
     """
-    def __init__(self, signup_or_modify, payments, cancel=None):
+    def __init__(self, signup_or_modify=None, payments=None, cancel=None):
         self.signup_or_modify = signup_or_modify
-        self.payments = payments.order_by('-payment_date')
+        self.payments = (sorted(payments, key=lambda p: p.payment_date, reverse=True)
+                         if payments else PayPalIPN.objects.none())
         self.cancel = cancel
 
     @property
     def is_cancelled(self):
         return self.cancel is not None
+
+    @property
+    def start(self):
+        if self.signup_or_modify is None:
+            return datetime.datetime.min
+
+        return (self.signup_or_modify.subscr_effective or
+                self.signup_or_modify.subscr_date)
 
     @property
     def free_trial_end(self):
@@ -63,14 +74,11 @@ class Subscription(object):
         the subscription.
 
         """
-        start = (self.signup_or_modify.subscr_effective or
-                 self.signup_or_modify.subscr_date)
-
-        if not self.signup_or_modify.period1:
-            return start
+        if self.signup_or_modify is None or not self.signup_or_modify.period1:
+            return self.start
 
         period = _period_to_timedelta(self.signup_or_modify.period1)
-        return start + period
+        return self.start + period
 
     @property
     def in_free_trial(self):
@@ -86,7 +94,14 @@ class Subscription(object):
         The normal price for this subscription.
 
         """
-        return self.signup_or_modify.amount3
+        if self.signup_or_modify is not None:
+            return self.signup_or_modify.amount3
+        elif self.payments:
+            return self.payments[0].mc_gross
+        elif self.cancel is not None:
+            return self.cancel.amount3
+        else:
+            raise AttributeError
 
     @property
     def next_due_date(self):
@@ -97,7 +112,13 @@ class Subscription(object):
         if not self.payments:
             return self.free_trial_end
 
-        period = _period_to_timedelta(self.signup_or_modify.period3)
+        if self.signup_or_modify is not None:
+            period = _period_to_timedelta(self.signup_or_modify.period3)
+        else:
+            try:
+                period = (self.payments[0].payment_date - self.payments[1].payment_date).days
+            except IndexError:
+                period = datetime.timedelta(days=30)
         return self.payments[0].payment_date + period
 
 
@@ -108,40 +129,29 @@ def get_subscriptions(ipn_set):
     :class:`PayPalIPN` instances.)
 
     """
-    signups_or_modifies = ipn_set.filter(flag=False,
-                                         txn_type__in=('subscr_signup',
-                                                       'subscr_modify')
-                                ).order_by('created_at')
+    ipn_set = ipn_set.filter(flag=False)
+    eot_ids = list(ipn_set.filter(txn_type='subscr_eot'
+                         ).values_list('subscr_id', flat=True))
+    ipn_set = ipn_set.exclude(subscr_id__in=eot_ids)
+    signups_or_modifies = ipn_set.filter(txn_type__in=('subscr_signup',
+                                                       'subscr_modify'))
+    payments = ipn_set.filter(txn_type='subscr_payment')
+    cancels = ipn_set.filter(txn_type='subscr_cancel')
 
-    if not signups_or_modifies:
-        return []
+    subscription_dict = {}
 
-    subscr_ids = [ipn.subscr_id for ipn in signups_or_modifies]
-    eot_ids = set(ipn_set.filter(flag=False,
-                                 txn_type='subscr_eot',
-                                 subscr_id__in=subscr_ids
-                        ).values_list('subscr_id', flat=True))
+    for ipn in signups_or_modifies:
+        subscription_dict.setdefault(ipn.txn_id, {})['signup_or_modify'] = ipn
 
-    signup_or_modify_dict = dict((ipn.subscr_id, ipn)
-                                 for ipn in signups_or_modifies
-                                 if ipn.subscr_id not in eot_ids)
+    for ipn in payments:
+        subscription_dict.setdefault(ipn.txn_id, {}).setdefault('payments', []).append(ipn)
 
-    if not signup_or_modify_dict:
-        return []
-
-    cancels = ipn_set.filter(flag=False,
-                             txn_type='subscr_cancel',
-                             subscr_id__in=signup_or_modify_dict
-                    ).order_by('created_at')
-    cancel_dict = dict((ipn.subscr_id, ipn) for ipn in cancels)
+    for ipn in cancels:
+        subscription_dict.setdefault(ipn.txn_id, {})['cancel'] = ipn
 
     subscriptions = []
-    for subscr_id, signup_or_modify in signup_or_modify_dict.iteritems():
-        payments = ipn_set.filter(flag=False,
-                                  txn_type='subscr_payment',
-                                  subscr_id=subscr_id)
-        subscriptions.append(Subscription(signup_or_modify, payments=payments,
-                                          cancel=cancel_dict.get(subscr_id)))
+    for kwargs in subscription_dict.itervalues():
+        subscriptions.append(Subscription(**kwargs))
 
     return subscriptions
 
@@ -157,7 +167,7 @@ def get_current_subscription(subscriptions):
         return None
     # Secondary sort: date created.
     subscriptions = sorted(subscriptions,
-                           key=lambda s: s.signup_or_modify.subscr_date,
+                           key=lambda s: s.start,
                            reverse=True)
     # Primary sort: price.
     subscriptions.sort(key=attrgetter('price'),
