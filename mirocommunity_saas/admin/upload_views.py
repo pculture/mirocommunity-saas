@@ -51,7 +51,7 @@ def set_default(request, theme_id):
     theme = get_object_or_404(Theme, pk=theme_id)
     tier = SiteTierInfo.objects.get_current().tier
 
-    if not theme.bundled and not tier.custom_themes:
+    if not tier.custom_themes:
         return HttpResponseForbidden("Eek, you may not set this theme as your current theme.")
 
     # Ok, the theme is fine and the person has permission.
