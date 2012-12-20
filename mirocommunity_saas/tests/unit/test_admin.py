@@ -26,7 +26,7 @@ from mirocommunity_saas.admin.forms import (TierChangeForm,
                                             PayPalSubscriptionForm)
 from mirocommunity_saas.admin.views import (TierView, TierChangeView,
                                             DowngradeConfirmationView)
-from mirocommunity_saas.tests.base import BaseTestCase
+from mirocommunity_saas.tests import BaseTestCase
 from mirocommunity_saas.utils.tiers import make_tier_change_token
 
 

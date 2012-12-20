@@ -36,7 +36,7 @@ from uploadtemplate.models import Theme
 
 from mirocommunity_saas.admin.forms import (EditSettingsForm, AuthorForm,
                                             VideoFormSet)
-from mirocommunity_saas.tests.base import BaseTestCase
+from mirocommunity_saas.tests import BaseTestCase
 from mirocommunity_saas.utils.tiers import (admins_to_demote,
                                             videos_to_deactivate,
                                             enforce_tier,

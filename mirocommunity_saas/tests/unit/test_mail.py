@@ -21,7 +21,7 @@ from django.core import mail, management
 from localtv.models import SiteSettings, Video
 import mock
 
-from mirocommunity_saas.tests.base import BaseTestCase
+from mirocommunity_saas.tests import BaseTestCase
 from mirocommunity_saas.utils.mail import (send_free_trial_ending,
                                            send_video_limit_warning,
                                            send_welcome_email)

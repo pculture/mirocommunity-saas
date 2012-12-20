@@ -29,7 +29,7 @@ from mirocommunity_saas.admin.approve_reject_views import (approve_video,
                                                        _video_limit_wrapper,
                                                        approve_all)
 from mirocommunity_saas.admin.livesearch_views import approve
-from mirocommunity_saas.tests.base import BaseTestCase
+from mirocommunity_saas.tests import BaseTestCase
 
 
 class VideoLimitWrapperTestCase(BaseTestCase):
@@ -389,12 +389,11 @@ description={description}
 
     def test_set_default__custom(self):
         """
-        If custom themes are not allowed, both "bundled" and "non-bundled"
-        themes can be selected as default.
+        If custom themes are allowed, themes can be selected as default.
 
         """
         index_url = reverse('uploadtemplate-index')
-        theme = self.create_theme(name='Theme1', bundled=False)
+        theme = self.create_theme(name='Theme1')
 
         tier = self.create_tier(custom_themes=True)
         self.create_tier_info(tier)

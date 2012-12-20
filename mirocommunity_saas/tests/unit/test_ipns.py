@@ -26,7 +26,7 @@ from paypal.standard.ipn.signals import (payment_was_successful,
                                          subscription_eot)
 
 from mirocommunity_saas.models import Tier
-from mirocommunity_saas.tests.base import BaseTestCase
+from mirocommunity_saas.tests import BaseTestCase
 from mirocommunity_saas.utils.tiers import (set_tier,
                                             record_new_ipn)
 
