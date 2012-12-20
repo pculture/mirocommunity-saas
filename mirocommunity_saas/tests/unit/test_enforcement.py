@@ -308,7 +308,7 @@ class EnforcementTestCase(BaseTestCase):
         self.assertEqual(set(Video.objects.filter(status=Video.ACTIVE)),
                          set(videos))
         self.assertEqual(len(mail.outbox), 0)
-        self.assertEqual(Theme.objects.get_default(), theme)
+        self.assertEqual(Theme.objects.get_current(), theme)
         self.assertEqual(Site.objects.get_current().domain, 'custom.nu')
         tier = self.create_tier(video_limit=None, admin_limit=None,
                                 custom_domain=True, custom_themes=True)
@@ -318,7 +318,7 @@ class EnforcementTestCase(BaseTestCase):
         self.assertEqual(set(Video.objects.filter(status=Video.ACTIVE)),
                          set(videos))
         self.assertEqual(len(mail.outbox), 0)
-        self.assertEqual(Theme.objects.get_default(), theme)
+        self.assertEqual(Theme.objects.get_current(), theme)
         self.assertEqual(Site.objects.get_current().domain, 'custom.nu')
         tier.delete()
 
@@ -330,7 +330,7 @@ class EnforcementTestCase(BaseTestCase):
         self.assertEqual(set(site_settings.admins.all()), set(admins[:1]))
         self.assertEqual(set(Video.objects.filter(status=Video.ACTIVE)),
                          set(videos[1:]))
-        self.assertRaises(Theme.DoesNotExist, Theme.objects.get_default)
+        self.assertRaises(Theme.DoesNotExist, Theme.objects.get_current)
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ['manager@localhost'])
         self.assertEqual(Site.objects.get_current().domain,
