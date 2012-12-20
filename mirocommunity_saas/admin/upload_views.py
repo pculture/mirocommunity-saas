@@ -53,5 +53,6 @@ def set_default(request, theme_id):
         return HttpResponseForbidden("Eek, you may not set this theme as your current theme.")
 
     # Ok, the theme is fine and the person has permission.
-    theme.set_as_default()
+    theme.default = False
+    theme.save()
     return HttpResponseRedirect(reverse('uploadtemplate-index'))
