@@ -35,8 +35,7 @@ class UploadtemplateAdmin(AdminView):
 		context = super(UploadtemplateAdmin, self).get_context_data(**kwargs)
 		tier = SiteTierInfo.objects.get_current().tier
 		if not tier.custom_themes:
-			# Only display non-custom themes as options.
-			context['themes'] = Theme.objects.filter(bundled=True)
+			context['themes'] = Theme.objects.none()
 		return context
 
 
@@ -44,8 +43,7 @@ def set_default(request, theme_id):
     """
     This sets a theme as the default.
 
-    If custom themes are disabled, users will only permitted to select a
-    "bundled" theme.
+    If custom themes are disabled, users can't set a theme as default.
 
     """
     theme = get_object_or_404(Theme, pk=theme_id)

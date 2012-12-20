@@ -368,19 +368,17 @@ description={description}
 
     def test_set_default__no_custom(self):
         """
-        If custom themes are not allowed, only "bundled" themes can be
-        selected as default.
+        If custom themes are not allowed, no themes can be selected.
 
         """
         index_url = reverse('uploadtemplate-index')
-        theme1 = self.create_theme(name='Theme1', bundled=False)
-        theme2 = self.create_theme(name='Theme2', bundled=True)
+        theme = self.create_theme(name='Theme1')
 
         tier = self.create_tier(custom_themes=False)
         self.create_tier_info(tier)
 
         self.assertRaises(Theme.DoesNotExist, Theme.objects.get_default)
-        url = reverse('uploadtemplate-set-default', args=(theme1.pk,))
+        url = reverse('uploadtemplate-set-default', args=(theme.pk,))
         self.assertRequiresAuthentication(url)
         self.create_user(username='admin', password='admin',
                          is_superuser=True)
@@ -389,11 +387,6 @@ description={description}
         self.assertEqual(response.status_code, 403)
         self.assertRaises(Theme.DoesNotExist, Theme.objects.get_default)
 
-        url = reverse('uploadtemplate-set-default', args=(theme2.pk,))
-        response = self.client.get(url)
-        self.assertRedirects(response, index_url)
-        self.assertEqual(Theme.objects.get_default(), theme2)
-
     def test_set_default__custom(self):
         """
         If custom themes are not allowed, both "bundled" and "non-bundled"
@@ -401,26 +394,20 @@ description={description}
 
         """
         index_url = reverse('uploadtemplate-index')
-        theme1 = self.create_theme(name='Theme1', bundled=False)
-        theme2 = self.create_theme(name='Theme2', bundled=True)
+        theme = self.create_theme(name='Theme1', bundled=False)
 
         tier = self.create_tier(custom_themes=True)
         self.create_tier_info(tier)
 
         self.assertRaises(Theme.DoesNotExist, Theme.objects.get_default)
-        url = reverse('uploadtemplate-set-default', args=(theme1.pk,))
+        url = reverse('uploadtemplate-set-default', args=(theme.pk,))
         self.assertRequiresAuthentication(url)
         self.create_user(username='admin', password='admin',
                          is_superuser=True)
         self.client.login(username='admin', password='admin')
         response = self.client.get(url)
         self.assertRedirects(response, index_url)
-        self.assertEqual(Theme.objects.get_default(), theme1)
-
-        url = reverse('uploadtemplate-set-default', args=(theme2.pk,))
-        response = self.client.get(url)
-        self.assertRedirects(response, index_url)
-        self.assertEqual(Theme.objects.get_default(), theme2)
+        self.assertEqual(Theme.objects.get_default(), theme)
 
 
 class FlatPagesTestCase(BaseTestCase):
