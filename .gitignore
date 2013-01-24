@@ -2,3 +2,6 @@
 *~
 *.egg-info
 .sass-cache
+/.tox/
+/test_project/test_project/db.sl3
+/test_project/test_project/media/

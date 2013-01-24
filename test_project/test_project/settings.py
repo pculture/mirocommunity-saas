@@ -1,53 +1,57 @@
-# Miro Community - Easiest way to make a video website
-#
-# Copyright (C) 2010, 2011, 2012 Participatory Culture Foundation
-# 
-# Miro Community is free software: you can redistribute it and/or modify it
-# under the terms of the GNU Affero General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or (at your
-# option) any later version.
-# 
-# Miro Community is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Affero General Public License for more details.
-# 
-# You should have received a copy of the GNU Affero General Public License
-# along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
-
-# Example settings for a Miro Community project
+# Settings for testing Miro Community on travis-ci.org
 
 import os
 
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
 
-USE_SOUTH = bool(os.environ.get('MC_TEST_USE_SOUTH', False))
-USE_ES = bool(os.environ.get('MC_TEST_USE_ES', False))
-
-ADMINS = (
-    # ('Your Name', 'your_email@domain.com'),
-)
+ADMINS = ()
 
 MANAGERS = ADMINS
 
-import os
-if not os.environ.get('MC_TEST_MYSQL', False):
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': 'example_mc_project.sl3',
-            'TEST_CHARSET': 'utf8'
-            }
-        }
-else:
+DB = os.environ.get('DB')
+if DB == 'mysql':
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
-            'NAME': 'miro_community_example',
+            'NAME': 'mirocommunity_saas_test',
             'USER': 'root',
-            'HOST': '',
-            'TEST_CHARSET': 'utf8'
+            'TEST_CHARSET': 'utf8',
+            'TEST_COLLATION': 'utf8_general_ci',
+        }
+    }
+elif DB == 'postgres':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': 'mirocommunity_saas_test',
+            'USER': 'postgres',
+            'TEST_CHARSET': 'utf8',
+        }
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': os.path.join(os.path.dirname(__file__), 'db.sl3'),
+        }
+    }
+
+# haystack search
+SEARCH = os.environ.get('SEARCH')
+if SEARCH == 'elasticsearch':
+    HAYSTACK_CONNECTIONS = {
+        'default': {
+            'ENGINE': 'haystack.backends.elasticsearch_backend.ElasticsearchSearchEngine',
+            'URL': 'http://localhost:9200/',
+            'INDEX_NAME': 'mirocommunity'
+            }
+        }
+else:
+    HAYSTACK_CONNECTIONS = {
+        'default': {
+            'ENGINE': 'haystack.backends.whoosh_backend.WhooshEngine',
+            'PATH': os.path.join(os.path.dirname(__file__), 'whoosh_index'),
             }
         }
 
@@ -120,7 +124,7 @@ STATICFILES_FINDERS = (
 )
 
 # Make this unique, and don't share it with anybody.
-SECRET_KEY = 'example_mc_project_secret_key'
+SECRET_KEY = 'not_secret'
 
 # List of callables that know how to import templates from various sources.
 TEMPLATE_LOADERS = (
@@ -141,7 +145,6 @@ MIDDLEWARE_CLASSES = (
     # 'django.middleware.clickjacking.XFrameOptionsMiddleware'
     'localtv.middleware.FixAJAXMiddleware',
     'localtv.middleware.UserIsAdminMiddleware',
-    'openid_consumer.middleware.OpenIDMiddleware',
 )
 
 ROOT_URLCONF = 'mirocommunity_saas.urls'
@@ -166,10 +169,6 @@ INSTALLED_APPS = (
     'django.contrib.flatpages',
     'django.contrib.staticfiles',
     'django.contrib.markup',
-    # Uncomment to use south migrations
-    # 'south',
-    'djpagetabs',
-    'mirocommunity_saas',
     'localtv.contrib.contests',
     'localtv',
     'localtv.admin',
@@ -190,14 +189,19 @@ INSTALLED_APPS = (
     'daguerre',
     'compressor',
     'mptt',
-    # mc-saas-specific apps
-    'paypal.standard.ipn',
+    'django_nose',
 )
 
-if USE_SOUTH:
+if os.environ.get('MIGRATIONS'):
     if 'south' not in INSTALLED_APPS:
         INSTALLED_APPS = INSTALLED_APPS + ('south',)
     SOUTH_TESTS_MIGRATE = True
+
+TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
+
+# Webdriver test settings
+TEST_BROWSER = 'Firefox'
+TEST_RESULTS_DIR = os.path.join(os.path.dirname(__file__), 'webdriver_results')
 
 TEMPLATE_CONTEXT_PROCESSORS = (
     'django.core.context_processors.debug',
@@ -219,7 +223,7 @@ APPEND_SLASH = False
 LOGIN_REDIRECT_URL = '/'
 
 AUTHENTICATION_BACKENDS = (
-    'localtv.backend.SiteAdminBackend',
+    'localtv.auth_backends.MirocommunityBackend',
     'social_auth.backends.twitter.TwitterBackend',
     'social_auth.backends.facebook.FacebookBackend',
     'social_auth.backends.OpenIDBackend',
@@ -262,33 +266,11 @@ ACCOUNT_ACTIVATION_DAYS = 7
 # django-tagging
 FORCE_LOWERCASE_TAGS = True
 
-# haystack search
-if USE_ES:
-    HAYSTACK_CONNECTIONS = {
-        'default': {
-            'ENGINE': 'haystack.backends.elasticsearch_backend.ElasticsearchSearchEngine',
-            'URL': 'http://localhost:9200/',
-            'INDEX_NAME': 'mirocommunity'
-            }
-        }
-else:
-    HAYSTACK_CONNECTIONS = {
-        'default': {
-            'ENGINE': 'haystack.backends.whoosh_backend.WhooshEngine',
-            'PATH': os.path.join(os.path.dirname(__file__), 'whoosh_index'),
-            }
-        }
-
 # Facebook options
 FACEBOOK_APP_ID = None
-FACEBOOK_API_KEY = None
-FACEBOOK_SECRET_KEY = None
-FACEBOOK_CONNECT_URL = None
-FACEBOOK_CONNECT_DOMAIN = None
+FACEBOOK_API_SECRET = None
+FACEBOOK_EXTENDED_PERMISSIONS = ['email']
 
 # Twitter options
 TWITTER_CONSUMER_KEY = None
 TWITTER_CONSUMER_SECRET = None
-
-# Paypal options
-PAYPAL_RECEIVER_EMAIL = ''
