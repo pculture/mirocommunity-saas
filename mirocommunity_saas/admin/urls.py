@@ -69,12 +69,20 @@ urlpatterns += patterns('localtv.admin',
 )
 
 # Theming overrides
-urlpatterns += patterns('',
-    url(r'themes/$', require_site_admin(UploadtemplateAdmin.as_view()),
+urlpatterns += patterns(
+    'mirocommunity_saas.admin.upload_views',
+    url(r'^themes/$', 'index',
         name='uploadtemplate-index'),
-    url(r'themes/set_default/(\d+)$', require_site_admin(set_default),
-        name='uploadtemplate-set-default'),
-)
+    url(r'^themes/add/$', 'create',
+        name='uploadtemplate-create'),
+    url(r'^themes/(?P<pk>\d+)/edit$', 'update',
+        name='uploadtemplate-update'),
+    url(r'^themes/(\d+)/delete$', 'delete',
+        name='uploadtemplate-delete'),
+    url(r'^themes/unset_default$', 'unset_default',
+        name='uploadtemplate-unset_default'),
+    url(r'^themes/set_default/(\d+)$', 'set_default',
+        name='uploadtemplate-set_default'))
 
 # Flatpages overrides
 urlpatterns += patterns('mirocommunity_saas.admin.flatpages_views',

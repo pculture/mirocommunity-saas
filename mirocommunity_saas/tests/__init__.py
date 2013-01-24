@@ -85,12 +85,11 @@ class BaseTestCase(MCBaseTestCase):
         return tier_info
 
     def create_theme(self, name='Test', site_id=settings.SITE_ID,
-                     description='Test description', default=False, **kwargs):
-        theme = Theme.objects.create(name=name, site_id=site_id,
-                                     description=description, **kwargs)
+                     default=False, **kwargs):
         if default:
-            Theme.objects.set_default(theme)
-        return theme
+            Theme.objects.filter(site_id=site_id, default=True).update(default=False)
+        return Theme.objects.create(name=name, site_id=site_id,
+                                    default=default, **kwargs)
 
     def create_ipn(self, ipaddress="", **kwargs):
         return PayPalIPN.objects.create(ipaddress=ipaddress, **kwargs)

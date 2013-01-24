@@ -304,88 +304,124 @@ class LiveSearchTestCase(BaseTestCase):
 
 
 class ThemeTestCase(BaseTestCase):
-    def create_theme_zip(self, name="Test", description="Test description."):
+    def test_get(self):
         """
-        Creates a zipped theme with the given name and description.
-        """
-        theme = StringIO()
-        theme_zip = zipfile.ZipFile(theme, 'w')
-        theme_zip.writestr('meta.ini', """
-[Theme]
-name={name}
-description={description}
-""".format(name=name, description=description))
-        theme_zip.close()
-        theme.name = 'theme.zip'
-        return theme
-
-    def test_upload__no_custom(self):
-        """
-        If themes are not allowed, uploading a theme should give a 403 error.
+        If custom themes are disallowed, all uploadtemplate paths should 404
+        for GET requests.
 
         """
-        url = reverse('uploadtemplate-index')
-        self.assertRequiresAuthentication(url)
-        self.create_user(username='admin', password='admin',
-                         is_superuser=True)
-        self.client.login(username='admin', password='admin')
-
-        theme = self.create_theme_zip()
-
-        self.assertEqual(Theme.objects.count(), 0)
-
         tier = self.create_tier(custom_themes=False)
         self.create_tier_info(tier)
-        theme.seek(0)
-        response = self.client.post(url, {'theme': theme})
-        self.assertEqual(response.status_code, 403)
-        self.assertEqual(Theme.objects.count(), 0)
+        theme = self.create_theme()
+        urls = (
+            reverse('uploadtemplate-index'),
+            reverse('uploadtemplate-create'),
+            reverse('uploadtemplate-update', kwargs={'pk': theme.pk}),
+            reverse('uploadtemplate-delete', args=(theme.pk,)),
+            reverse('uploadtemplate-unset_default'),
+            reverse('uploadtemplate-set_default', args=(theme.pk,))
+        )
+        incorrect = ()
+        for url in urls:
+            response = self.client.get(url)
+            if response.status_code != 404:
+                incorrect += ((url, response.status_code))
+        if incorrect:
+            raise AssertionError("Incorrect responses:\n{incorrect}".format(incorrect=incorrect))
 
-    def test_upload__custom(self):
+    def test_create__custom(self):
         """
-        If themes are allowed, uploading a theme should redirect a user to the
-        theme index after successfully creating a theme and setting it as
-        default.
+        POST requests to the create view should work if custom themes are allowed.
 
         """
-        url = reverse('uploadtemplate-index')
+        index_url = reverse('uploadtemplate-index')
+        tier = self.create_tier(custom_themes=True)
+        self.create_tier_info(tier)
+        url = reverse('uploadtemplate-create')
         self.assertRequiresAuthentication(url)
         self.create_user(username='admin', password='admin',
                          is_superuser=True)
         self.client.login(username='admin', password='admin')
 
-        theme = self.create_theme_zip()
+        self.assertEqual(Theme.objects.count(), 0)
+        response = self.client.post(url, {'name': 'theme'})
+        self.assertRedirects(response, index_url)
+        self.assertEqual(Theme.objects.count(), 1)
 
+    def test_create__no_custom(self):
+        """
+        POST requests to the create view should 404 if custom themes are not allowed.
+
+        """
+        tier = self.create_tier(custom_themes=False)
+        self.create_tier_info(tier)
+        url = reverse('uploadtemplate-create')
+        # If this works, we can't check whether auth is required.
+        self.create_user(username='admin', password='admin',
+                         is_superuser=True)
+        self.client.login(username='admin', password='admin')
+
+        self.assertEqual(Theme.objects.count(), 0)
+        response = self.client.post(url, {'name': 'theme'})
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(Theme.objects.count(), 0)
+
+    def test_update__custom(self):
+        """
+        POST requests to the create view should work if custom themes are allowed.
+
+        """
+        index_url = reverse('uploadtemplate-index')
         tier = self.create_tier(custom_themes=True)
         self.create_tier_info(tier)
-        theme.seek(0)
-        self.assertEqual(Theme.objects.count(), 0)
-        response = self.client.post(url, {'theme': theme})
-        self.assertRedirects(response, url)
-        self.assertEqual(Theme.objects.count(), 1)
-        theme = Theme.objects.get()
-        self.assertTrue(theme.default)
+        theme = self.create_theme(name='theme1')
+        url = reverse('uploadtemplate-update', kwargs={'pk': theme.pk})
+        self.assertRequiresAuthentication(url)
+        self.create_user(username='admin', password='admin',
+                         is_superuser=True)
+        self.client.login(username='admin', password='admin')
+
+        response = self.client.post(url, {'name': 'theme2'})
+        self.assertRedirects(response, index_url)
+        self.assertEqual(Theme.objects.get(pk=theme.pk).name, 'theme2')
+
+    def test_update__no_custom(self):
+        """
+        POST requests to the create view should 404 if custom themes are not allowed.
+
+        """
+        tier = self.create_tier(custom_themes=False)
+        self.create_tier_info(tier)
+        theme = self.create_theme(name='theme1')
+        url = reverse('uploadtemplate-update', kwargs={'pk': theme.pk})
+        # If this works, we can't check whether auth is required.
+        self.create_user(username='admin', password='admin',
+                         is_superuser=True)
+        self.client.login(username='admin', password='admin')
+
+        response = self.client.post(url, {'name': 'theme2'})
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(Theme.objects.get(pk=theme.pk).name, 'theme1')
 
     def test_set_default__no_custom(self):
         """
         If custom themes are not allowed, no themes can be selected.
 
         """
-        index_url = reverse('uploadtemplate-index')
-        theme = self.create_theme(name='Theme1')
+        theme = self.create_theme()
 
         tier = self.create_tier(custom_themes=False)
         self.create_tier_info(tier)
 
-        self.assertRaises(Theme.DoesNotExist, Theme.objects.get_default)
-        url = reverse('uploadtemplate-set-default', args=(theme.pk,))
-        self.assertRequiresAuthentication(url)
+        self.assertRaises(Theme.DoesNotExist, Theme.objects.get_current)
+        url = reverse('uploadtemplate-set_default', args=(theme.pk,))
+        # If this works, we can't check whether auth is required.
         self.create_user(username='admin', password='admin',
                          is_superuser=True)
         self.client.login(username='admin', password='admin')
         response = self.client.get(url)
-        self.assertEqual(response.status_code, 403)
-        self.assertRaises(Theme.DoesNotExist, Theme.objects.get_default)
+        self.assertEqual(response.status_code, 404)
+        self.assertRaises(Theme.DoesNotExist, Theme.objects.get_current)
 
     def test_set_default__custom(self):
         """
@@ -398,15 +434,15 @@ description={description}
         tier = self.create_tier(custom_themes=True)
         self.create_tier_info(tier)
 
-        self.assertRaises(Theme.DoesNotExist, Theme.objects.get_default)
-        url = reverse('uploadtemplate-set-default', args=(theme.pk,))
+        self.assertRaises(Theme.DoesNotExist, Theme.objects.get_current)
+        url = reverse('uploadtemplate-set_default', args=(theme.pk,))
         self.assertRequiresAuthentication(url)
         self.create_user(username='admin', password='admin',
                          is_superuser=True)
         self.client.login(username='admin', password='admin')
         response = self.client.get(url)
         self.assertRedirects(response, index_url)
-        self.assertEqual(Theme.objects.get_default(), theme)
+        self.assertEqual(Theme.objects.get_current(), theme)
 
 
 class FlatPagesTestCase(BaseTestCase):
