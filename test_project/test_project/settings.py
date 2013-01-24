@@ -90,7 +90,7 @@ USE_L10N = True
 
 # Absolute filesystem path to the directory that will hold user-uploaded files.
 # Example: "/home/media/media.lawrence.com/media/"
-MEDIA_ROOT = 'media/'
+MEDIA_ROOT = os.path.join(os.path.dirname(__file__), 'media/')
 
 # URL that handles the media served from MEDIA_ROOT. Make sure to use a
 # trailing slash.
@@ -169,6 +169,7 @@ INSTALLED_APPS = (
     'django.contrib.flatpages',
     'django.contrib.staticfiles',
     'django.contrib.markup',
+    'mirocommunity_saas',
     'localtv.contrib.contests',
     'localtv',
     'localtv.admin',
@@ -190,6 +191,7 @@ INSTALLED_APPS = (
     'compressor',
     'mptt',
     'django_nose',
+    'paypal.standard.ipn',
 )
 
 if os.environ.get('MIGRATIONS'):
@@ -274,3 +276,6 @@ FACEBOOK_EXTENDED_PERMISSIONS = ['email']
 # Twitter options
 TWITTER_CONSUMER_KEY = None
 TWITTER_CONSUMER_SECRET = None
+
+# Paypal options
+PAYPAL_RECEIVER_EMAIL = ''
