@@ -20,8 +20,6 @@ from localtv.decorators import require_site_admin
 
 from mirocommunity_saas.admin.forms import (EditSettingsForm, AuthorForm,
                                             AuthorFormSet, VideoFormSet)
-from mirocommunity_saas.admin.upload_views import (UploadtemplateAdmin,
-                                                   set_default)
 from mirocommunity_saas.admin.views import (index, TierView, TierChangeView,
                                             DowngradeConfirmationView)
 
@@ -69,11 +67,25 @@ urlpatterns += patterns('localtv.admin',
 )
 
 # Theming overrides
+from uploadtemplate.views import (AdminView, unset_default, set_default,
+                                  delete, download)
+from mirocommunity_saas.admin.upload_views import themes_required
 urlpatterns += patterns('',
-    url(r'themes/$', require_site_admin(UploadtemplateAdmin.as_view()),
+    url(r'^themes/$',
+        themes_required(require_site_admin(AdminView.as_view())),
         name='uploadtemplate-index'),
-    url(r'themes/set_default/(\d+)$', require_site_admin(set_default),
-        name='uploadtemplate-set-default'),
+    url(r'^themes/unset_default$',
+        themes_required(require_site_admin(unset_default)),
+        name='uploadtemplate-unset_default'),
+    url(r'^themes/set_default/(\d+)$',
+        themes_required(require_site_admin(set_default)),
+        name='uploadtemplate-set_default'),
+    url(r'^themes/delete/(\d+)$',
+        themes_required(require_site_admin(delete)),
+        name='uploadtemplate-delete'),
+    url(r'^themes/download/(\d+)$',
+        themes_required(require_site_admin(download)),
+        name='uploadtemplate-download')
 )
 
 # Flatpages overrides
