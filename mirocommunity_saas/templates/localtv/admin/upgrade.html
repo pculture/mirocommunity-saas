@@ -64,27 +64,44 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
         </ul>
       </div>
       <div class="ft">
-        {% if tier.price == subscription_prices.0 or tier.price == 0 and not subscription_prices %}
-          {% if tier == tier_info.tier %}
-            <p>Your current plan</p>
+        {% if tier_info.enforce_payments %}
+          {% if tier.price == subscription_prices.0 or tier.price == 0 and not subscription_prices %}
+            {% if tier == tier_info.tier %}
+              <p>Your current plan</p>
+            {% else %}
+              <p>Your next plan</p>
+            {% endif %}
+          {% elif tier.price in subscription_prices %}
+            <form action="{{ cancellation_form.action }}" method="{{ cancellation_form.method }}">
+              {% for field in cancellation_form.hidden_fields %}{{ field }}{% endfor %}
+              <button type="submit">
+                <em>Cancel old subscription</em>
+              </button>
+            </form>
           {% else %}
-            <p>Your next plan</p>
+            <form action="{{ form.action }}" method="{{ form.method }}">
+              {% if form.method == "post" and form.action.0 == "/" %}{% csrf_token %}{% endif %}
+              {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+              <button type="submit">
+                {% if tier == tier_info.tier %}
+                  <em>Renew {{ tier.name }} subscription</em>
+                {% elif tier.price <= tier_info.tier.price %}
+                  <em>Switch to {{ tier.name }}</em>
+                {% else %}
+                  <em>Upgrade your account</em>
+                {% endif %}
+              </button>
+            </form>
           {% endif %}
-        {% elif tier.price in subscription_prices %}
-          <form action="{{ cancellation_form.action }}" method="{{ cancellation_form.method }}">
-            {% for field in cancellation_form.hidden_fields %}{{ field }}{% endfor %}
-            <button type="submit">
-              <em>Cancel old subscription</em>
-            </button>
-          </form>
+      {% else %}
+        {% if tier == tier_info.tier %}
+          <p>Your current plan</p>
         {% else %}
           <form action="{{ form.action }}" method="{{ form.method }}">
             {% if form.method == "post" and form.action.0 == "/" %}{% csrf_token %}{% endif %}
             {% for field in form.hidden_fields %}{{ field }}{% endfor %}
             <button type="submit">
-              {% if tier == tier_info.tier %}
-                <em>Renew {{ tier.name }} subscription</em>
-              {% elif tier.price <= tier_info.tier.price %}
+              {% if tier.price <= tier_info.tier.price %}
                 <em>Switch to {{ tier.name }}</em>
               {% else %}
                 <em>Upgrade your account</em>
@@ -92,6 +109,7 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
             </button>
           </form>
         {% endif %}
+      {% endif %}
       </div>
     </div>
   {% endfor %}
