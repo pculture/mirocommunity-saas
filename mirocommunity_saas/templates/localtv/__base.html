@@ -60,19 +60,43 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
         {#% compress js %#}
             <script type="text/javascript">
                 (function () {
+                    // if a querystring is present in the hash, redirect
+                    // This is due to History.js's strange behavior.
+                    if (window.location.hash.slice(0, 2) == '#?') {
+                        window.location = window.location.hash.slice(1)
+                    }
+
                     window.STATIC_URL = "{{ STATIC_URL }}";
                 }());
             </script>
-            <script src="{% get_static_url 'localtv/front/js/modernizr-2.5.3.min.js' bundled %}"></script>
-            <script src="{% get_static_url 'localtv/front/js/jquery-1.7.2.min.js' bundled %}"></script>
-            <script src="{% get_static_url 'localtv/front/js/jquery.cycle.js' bundled %}"></script>
-            <script src="{% get_static_url 'localtv/front/js/jquery.infinitescroll.js' bundled %}"></script>
-            <script src="{% get_static_url 'localtv/front/js/bootstrap.tooltip.js' bundled %}"></script>
-            <script src="{% get_static_url 'localtv/front/js/bootstrap.popover.js' bundled %}"></script>
-            <script src="{% get_static_url 'localtv/front/js/localtv.dropdown.js' bundled %}"></script>
-            <script src="{% get_static_url 'localtv/front/js/localtv.tabs.js' bundled %}"></script>
-            <script src="{% get_static_url 'localtv/front/js/localtv.shrinkydink.js' bundled %}"></script>
-            <script src="{% get_static_url 'localtv/front/js/localtv.kickoff.js' bundled %}"></script>
+            <script src="{% get_static_url 'localtv/front/js/modernizr-2.5.3.min.js' %}"></script>
+            <script src="{% get_static_url 'localtv/front/js/jquery-1.7.2.min.js' %}"></script>
+            <script src="{% get_static_url 'localtv/front/js/jquery.cycle.js' %}"></script>
+            <script src="{% get_static_url 'localtv/front/js/jquery.history.js' %}"></script>
+            <script src="{% get_static_url 'localtv/front/js/jquery.infinitescroll.js' %}"></script>
+            <script src="{% get_static_url 'localtv/front/js/bootstrap.tooltip.js' %}"></script>
+            <script src="{% get_static_url 'localtv/front/js/bootstrap.popover.js' %}"></script>
+            <script src="{% get_static_url 'localtv/front/js/localtv.dropdown.js' %}"></script>
+            <script src="{% get_static_url 'localtv/front/js/localtv.tabs.js' %}"></script>
+            <script src="{% get_static_url 'localtv/front/js/localtv.shrinkydink.js' %}"></script>
+            <script src="{% get_static_url 'localtv/front/js/localtv.kickoff.js' %}"></script>
+    
+            {% if GOOGLE_ANALYTICS_UA %}
+                <script type="text/javascript">
+                    var _gaq = _gaq || [];
+                    _gaq.push(['_setAccount', '{{ GOOGLE_ANALYTICS_UA }}']);
+                    {% if GOOGLE_ANALYTICS_DOMAIN %}
+                        _gaq.push(['_setDomainName', '{{ GOOGLE_ANALYTICS_DOMAIN }}'])
+                    {% endif %}
+                    _gaq.push(['_trackPageview']);
+
+                    (function() {
+                        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+                        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+                        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+                    })();
+                </script>
+            {% endif %}
         {#% endcompress %#}
     {% endblock %}
 </head>
@@ -102,23 +126,6 @@ along with Miro Community.  If not, see <http://www.gnu.org/licenses/>.
         </footer>
         
     </div>{# /#container #}
-    
-    {% if settings.GOOGLE_ANALYTICS_UA %}
-        <script type="text/javascript">
-        var gaJsHost = (("https:" == document.location.protocol) ?
-        "https://ssl." : "http://www.");
-        document.write(unescape("%3Cscript src='" + gaJsHost +
-        "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
-        </script>
-        <script type="text/javascript">
-        try {
-          var pageTracker = _gat._getTracker("{{ settings.GOOGLE_ANALYTICS_UA }}");
-          {% if settings.GOOGLE_ANALYTICS_DOMAIN %}
-          pageTracker._setDomainName(".{{ settings.GOOGLE_ANALYTICS_DOMAIN }}");
-          {% endif %}
-          pageTracker._trackPageview();
-        } catch(err) {}</script>
-    {% endif %}
     
     {% if "MSIE 6" in request.META.HTTP_USER_AGENT or "MSIE 7" in request.META.HTTP_USER_AGENT %}
         {% if not "chromeframe" in request.META.HTTP_USER_AGENT %}
