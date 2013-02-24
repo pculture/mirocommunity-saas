@@ -26,8 +26,9 @@ class StaticBotoStorage(S3BotoStorage):
 
     """
     def __init__(self, **kwargs):
+        from django.conf import settings
         if 'location' not in kwargs:
-            kwargs['location'] = 'static'
+            kwargs['location'] = settings.STATIC_URL.rstrip('/').rsplit('/', 1)[-1]
         super(StaticBotoStorage, self).__init__(**kwargs)
 
 
