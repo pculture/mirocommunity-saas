@@ -156,7 +156,7 @@ class DowngradeConfirmationViewUnitTestCase(BaseTestCase):
         raised.
 
         """
-        tier3 = self.create_tier(name='Tier3', slug='tier3', price=10)
+        self.create_tier(name='Tier3', slug='tier3', price=10)
         view = DowngradeConfirmationView()
         view.request = self.factory.get('/', data={'tier': 'tier3'})
         self.assertRaises(Http404, view.get_context_data)

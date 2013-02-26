@@ -2,10 +2,8 @@ import datetime
 from optparse import make_option
 import urllib
 
-from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
-from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from localtv.models import SiteSettings
 from localtv.tasks import CELERY_USING

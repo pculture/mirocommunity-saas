@@ -1,7 +1,7 @@
 import datetime
 
 from django.core import mail, management
-from localtv.models import SiteSettings, Video
+from localtv.models import SiteSettings
 import mock
 
 from mirocommunity_saas.tests import BaseTestCase
@@ -90,7 +90,7 @@ class MailTestCase(BaseTestCase):
 
         self.assertEqual(len(mail.outbox), 0)
         with mock.patch.object(tier_info, 'subscription', None):
-           send_free_trial_ending()
+            send_free_trial_ending()
         self.assertEqual(len(mail.outbox), 0)
 
     def test_free_trial_ending(self):

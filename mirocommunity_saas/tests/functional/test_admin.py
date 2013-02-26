@@ -1,5 +1,3 @@
-from StringIO import StringIO
-import zipfile
 
 from django.core.urlresolvers import reverse
 from django.http import Http404
@@ -7,10 +5,8 @@ from localtv.models import SiteSettings, Video
 import mock
 from uploadtemplate.models import Theme
 
-from mirocommunity_saas.admin.approve_reject_views import (approve_video,
-                                                       feature_video,
-                                                       _video_limit_wrapper,
-                                                       approve_all)
+from mirocommunity_saas.admin.approve_reject_views import (_video_limit_wrapper,
+                                                           approve_all)
 from mirocommunity_saas.admin.livesearch_views import approve
 from mirocommunity_saas.tests import BaseTestCase
 
@@ -34,7 +30,7 @@ class VideoLimitWrapperTestCase(BaseTestCase):
         """
         video = self.create_video(status=Video.ACTIVE)
         request = self.factory.get('/', {'video_id': video.pk})
-        response = self.view(request)
+        self.view(request)
         self.assertTrue(self.mock.called)
 
     def test_no_limit(self):
@@ -47,7 +43,7 @@ class VideoLimitWrapperTestCase(BaseTestCase):
         self.create_tier_info(tier)
         video = self.create_video(status=Video.UNAPPROVED)
         request = self.factory.get('/', {'video_id': video.pk})
-        response = self.view(request)
+        self.view(request)
         self.assertTrue(self.mock.called)
 
     def test_below_limit(self):
@@ -60,7 +56,7 @@ class VideoLimitWrapperTestCase(BaseTestCase):
         self.create_tier_info(tier)
         video = self.create_video(status=Video.UNAPPROVED)
         request = self.factory.get('/', {'video_id': video.pk})
-        response = self.view(request)
+        self.view(request)
         self.assertTrue(self.mock.called)
 
     def test_below_limit__exact(self):
@@ -73,7 +69,7 @@ class VideoLimitWrapperTestCase(BaseTestCase):
         self.create_tier_info(tier)
         video = self.create_video(status=Video.UNAPPROVED)
         request = self.factory.get('/', {'video_id': video.pk})
-        response = self.view(request)
+        self.view(request)
         self.assertTrue(self.mock.called)
 
     def test_at_limit(self):
@@ -282,7 +278,7 @@ class LiveSearchTestCase(BaseTestCase):
                                    user=self.user)
         with mock.patch('mirocommunity_saas.admin.livesearch_views.'
                         'LiveSearchApproveVideoView.get') as get:
-            response = approve(request)
+            approve(request)
             self.assertFalse(get.called)
 
 

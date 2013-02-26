@@ -11,7 +11,6 @@ from django.core import mail
 from django.core.exceptions import ValidationError
 from django.forms.formsets import TOTAL_FORM_COUNT, INITIAL_FORM_COUNT
 from django.forms.models import model_to_dict
-from django.http import Http404
 from django.test.utils import override_settings
 from localtv.models import SiteSettings, Video
 from uploadtemplate.models import Theme

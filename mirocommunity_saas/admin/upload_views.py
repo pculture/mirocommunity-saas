@@ -1,8 +1,6 @@
 from functools import wraps
 
-from django.core.urlresolvers import reverse
-from django.http import Http404, HttpResponseRedirect
-from django.shortcuts import get_object_or_404
+from django.http import Http404
 from localtv.admin import upload_views
 from localtv.decorators import require_site_admin
 from uploadtemplate.models import Theme
@@ -22,12 +20,12 @@ def require_custom_themes(view_func):
 
 
 class UploadtemplateAdmin(ThemeIndexView):
-	def get_context_data(self, **kwargs):
-		context = super(UploadtemplateAdmin, self).get_context_data(**kwargs)
-		tier = SiteTierInfo.objects.get_current().tier
-		if not tier.custom_themes:
-			context['themes'] = Theme.objects.none()
-		return context
+    def get_context_data(self, **kwargs):
+        context = super(UploadtemplateAdmin, self).get_context_data(**kwargs)
+        tier = SiteTierInfo.objects.get_current().tier
+        if not tier.custom_themes:
+            context['themes'] = Theme.objects.none()
+        return context
 
 
 index = require_custom_themes(require_site_admin(UploadtemplateAdmin.as_view()))
