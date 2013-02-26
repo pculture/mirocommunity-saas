@@ -15,8 +15,24 @@ from localtv.admin.approve_reject_views import (
 from mirocommunity_saas.models import Tier
 
 
-VIDEO_LIMIT_ERROR = ("You are over the video limit. You will need to upgrade "
-                     "to approve that video.")
+OVER_LIMIT_ERROR = ("You've hit your video limit ({limit} videos). You will "
+                    "need to upgrade to approve {video_text}.")
+UNDER_LIMIT_ERROR = ("You only have {remaining} videos left before you hit "
+                     "your limit ({limit} videos). You will need to upgrade "
+                     "to approve {video_text}.")
+
+
+def _video_limit_error(approve_count, remaining, limit):
+    if approve_count == 1:
+        video_text = "that video"
+    else:
+        video_text = "those {0} videos".format(approve_count)
+    if remaining <= 0:
+        return OVER_LIMIT_ERROR.format(video_text=video_text, limit=limit)
+    else:
+        return UNDER_LIMIT_ERROR.format(video_text=video_text,
+                                        remaining=remaining,
+                                        limit=limit)
 
 
 def _video_limit_wrapper(view_func):
@@ -41,7 +57,8 @@ def _video_limit_wrapper(view_func):
                 remaining = tier.video_limit - videos.count()
                 if remaining < 1:
                     return HttpResponse(
-                        content=VIDEO_LIMIT_ERROR,
+                        content=_video_limit_error(1, remaining,
+                                                   tier.video_limit),
                         status=402)
         return view_func(request)
     return wrapper
@@ -71,15 +88,8 @@ def approve_all(request):
         need = len(page.object_list)
 
         if need > remaining:
-            return HttpResponse(content=("You are trying to approve {need} "
-                                         "videos at a time.  However, you can"
-                                         " approve only {remaining} more "
-                                         "videos under your video limit. "
-                                         "Please upgrade your account to "
-                                         "increase your limit, or unapprove "
-                                         "some older videos to make "
-                                         "space for newer ones.").format(
-                                             need=need, remaining=remaining),
+            return HttpResponse(content=_video_limit_error(need, remaining,
+                                                           tier.video_limit),
                                 status=402)
 
     return _approve_all(request)
