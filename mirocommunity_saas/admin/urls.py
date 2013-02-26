@@ -3,8 +3,6 @@ from localtv.decorators import require_site_admin
 
 from mirocommunity_saas.admin.forms import (EditSettingsForm, AuthorForm,
                                             AuthorFormSet, VideoFormSet)
-from mirocommunity_saas.admin.upload_views import (UploadtemplateAdmin,
-                                                   set_default)
 from mirocommunity_saas.admin.views import (index, TierView, TierChangeView,
                                             DowngradeConfirmationView)
 

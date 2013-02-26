@@ -1,5 +1,5 @@
+import logging
 import math
-from operator import attrgetter
 
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect, Http404
@@ -14,8 +14,7 @@ from mirocommunity_saas.admin.forms import (TierChangeForm,
                                             PayPalCancellationForm,
                                             PayPalSubscriptionForm)
 from mirocommunity_saas.models import SiteTierInfo, Tier
-from mirocommunity_saas.utils.tiers import (check_tier_change_token,
-                                            admins_to_demote,
+from mirocommunity_saas.utils.tiers import (admins_to_demote,
                                             videos_to_deactivate,
                                             set_tier)
 
@@ -29,9 +28,11 @@ class TierIndexView(IndexView):
     def get_context_data(self, **kwargs):
         context = super(TierIndexView, self).get_context_data(**kwargs)
         tier = SiteTierInfo.objects.get_current().tier
+        percent_videos_used = min(math.floor((100.0 * context['total_count'])
+                                             / tier.video_limit),
+                                  100)
         context.update({
-            'percent_videos_used': math.floor((100.0 * context['total_count'])
-                                              / tier.video_limit),
+            'percent_videos_used': percent_videos_used,
         })
         return context
 
