@@ -19,5 +19,5 @@ install:
 before_script:
   - if [ $DB == 'mysql' ]; then mysql -e 'CREATE DATABASE mirocommunity_saas_test;'; fi
 script:
-  - cd test_mc_project
+  - cd test_project
   - ./manage.py test --verbosity=2 mirocommunity_saas
