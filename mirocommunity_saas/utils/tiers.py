@@ -97,9 +97,13 @@ def enforce_tier(tier):
             site.save()
 
     if not tier.custom_themes:
-        theme = Theme.objects.get_current()
-        theme.default = False
-        theme.save()
+        try:
+            theme = Theme.objects.get_current()
+        except Theme.DoesNotExist:
+            pass
+        else:
+            theme.default = False
+            theme.save()
 
 
 def make_tier_change_token(new_tier):
