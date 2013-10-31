@@ -113,6 +113,19 @@ def send_welcome_email():
     tier_info.save()
 
 
+def send_winddown_email():
+    tier_info = SiteTierInfo.objects.get_current()
+    if tier_info.winddown_email_sent:
+        return
+    send_mail('mirocommunity_saas/mail/winddown/subject.txt',
+              'mirocommunity_saas/mail/winddown/body.md',
+              # site owners are currently all superusers.
+              User.objects.filter(is_superuser=True, is_active=True),
+              from_email="stephen@pculture.org")
+    tier_info.winddown_email_sent = True
+    tier_info.save()
+
+
 def send_video_limit_warning():
     tier_info = SiteTierInfo.objects.get_current()
     video_limit = tier_info.tier.video_limit

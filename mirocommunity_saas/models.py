@@ -92,6 +92,9 @@ class SiteTierInfo(models.Model):
     #: received a video limit warning.
     video_count_when_warned = models.PositiveIntegerField(blank=True, null=True)
 
+    #: Whether the email for the MC winddown has been sent yet.
+    winddown_email_sent = models.BooleanField(default=False)
+
     objects = SiteTierInfoManager()
 
     def __unicode__(self):
