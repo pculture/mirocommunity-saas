@@ -6,6 +6,6 @@ Miro Community has always been an open-source project, and the code will continu
 
 Please let me know if you have any questions regarding these changes.
 
-Best wishes,
-Stephen Burrows
+Best wishes,  
+Stephen Burrows  
 Miro Community Dev
